@@ -1,0 +1,47 @@
+#!/bin/bash
+# MintyForge - Main script
+# Utility for Linux Mint Cinnamon configuration and setup
+
+LOGFILE="logs/mintyforge.log"
+mkdir -p logs
+
+# Disable suspend & screensaver temporarily
+gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout 0
+gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 0
+gsettings set org.cinnamon.desktop.screensaver lock-enabled false
+
+main_menu() {
+  clear
+  echo "=== MintyForge ==="
+  echo "1) Update & Upgrade"
+  echo "2) Install APT packages"
+  echo "3) Remove unwanted APT packages"
+  echo "4) Install Flatpaks"
+  echo "5) Install User Themes (GTK, Icons, Cursors)"
+  echo "6) Install System Themes + Greeter"
+  echo "7) Configure Drivers"
+  echo "8) Configure Qt Apps (setup + theme)"
+  echo "9) Run Distroscript"
+  echo "0) Exit"
+  echo
+  read -p "Choose an option: " choice
+
+  case $choice in
+    1) sudo apt update -y && sudo apt upgrade -y ;;
+    2) ./scripts/apt_install.sh ;;
+    3) ./scripts/apt_remove.sh ;;
+    4) ./scripts/flatpak_install.sh ;;
+    5) ./scripts/themes_user.sh ;;
+    6) ./scripts/themes_system.sh ;;
+    7) ./scripts/drivers.sh ;;
+    8) ./scripts/qt_setup.sh && ./scripts/qt_apply.sh ;;
+    9) ./scripts/distroscript.sh ;;
+    0) exit 0 ;;
+    *) echo "Invalid option" ;;
+  esac
+}
+
+while true; do
+  main_menu | tee -a "$LOGFILE"
+  read -p "Press Enter to continue..."
+done

@@ -1,0 +1,10 @@
+#!/bin/bash
+# System-wide themes and greeter config
+
+./Qogir-theme/install.sh -c dark -d /usr/share/themes/
+./Tela-icon-theme/install.sh -d /usr/share/icons/
+
+# Configure LightDM slick-greeter
+cp configs/slick-greeter_custom.conf /etc/lightdm/slick-greeter.conf
+chown root:root /etc/lightdm/slick-greeter.conf
+chmod 644 /etc/lightdm/slick-greeter.conf

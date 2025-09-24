@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "[Minty_Forge] Installing APT packages..."
+xargs -a configs/apt.txt sudo apt install -y

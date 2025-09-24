@@ -1,0 +1,7 @@
+#!/bin/bash
+# Clone and run Distroscript
+if [ ! -d "distroscript" ]; then
+  git clone https://github.com/benjsant/distroscript.git
+fi
+cd distroscript
+./distroscript.sh

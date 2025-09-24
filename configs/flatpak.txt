@@ -1,0 +1,4 @@
+flathub com.github.tchx84.Flatseal
+flathub io.github.dvlv.boxbuddyrs
+flathub io.podman_desktop.PodmanDesktop
+flathub com.github.qarmin.czkawka

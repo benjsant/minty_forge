@@ -1,0 +1,24 @@
+#!/bin/bash
+QT_CONFIG_DIR="$HOME/.config/qt5ct"
+mkdir -p "$QT_CONFIG_DIR"
+
+echo "Available Qt themes:"
+i=1
+declare -A THEMES
+while read -r theme; do
+  echo "[$i] $theme"
+  THEMES[$i]="$theme"
+  ((i++))
+done < configs/qt_themes.txt
+
+read -p "Choose a theme number: " choice
+SELECTED=${THEMES[$choice]}
+if [[ -z "$SELECTED" ]]; then
+  echo "Invalid choice"; exit 1
+fi
+
+cat > "$QT_CONFIG_DIR/qt5ct.conf" <<EOF
+[Appearance]
+style=$SELECTED
+icon_theme=Mint-Y
+EOF

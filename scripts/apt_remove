@@ -1,0 +1,4 @@
+#!/bin/bash
+echo "[MintyForge] Removing unwanted APT packages..."
+xargs -a configs/remove.txt sudo apt purge -y
+sudo apt autoremove -y

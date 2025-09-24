@@ -1,0 +1,10 @@
+#!/bin/bash
+USER_NAME=$(getent passwd 1000 | cut -d: -f1)
+cd /home/$USER_NAME
+
+mkdir -p ~/.icons ~/.themes
+git clone https://github.com/vinceliuice/Qogir-theme.git
+git clone https://github.com/vinceliuice/Tela-icon-theme.git
+
+./Qogir-theme/install.sh -c dark -d ~/.themes/ -l
+./Tela-icon-theme/install.sh -d ~/.icons/

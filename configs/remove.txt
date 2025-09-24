@@ -1,0 +1,5 @@
+mintwelcome
+mintchat
+transmission-*
+seahorse
+gnome-screenshot

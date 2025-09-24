@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "[MintyForge] Launching Mint Drivers..."
+sudo mintdrivers
