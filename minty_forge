@@ -10,7 +10,7 @@ gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeo
 gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 0
 gsettings set org.cinnamon.desktop.screensaver lock-enabled false
 
-sudo apt update -y && sudo apt upgrade -y ;;
+sudo apt update -y && sudo apt upgrade -y 
 
 main_menu() {
   clear
