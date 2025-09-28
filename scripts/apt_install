@@ -1,3 +1,25 @@
 #!/bin/bash
-echo "[Minty_Forge] Installing APT packages..."
+# MintyForge - Enhanced APT installation script
+
+echo "[MintyForge] Installing APT packages from configs/apt.txt..."
 xargs -a configs/apt.txt sudo apt install -y
+
+# --- Podman ---
+if ! command -v podman &> /dev/null; then
+    echo "[MintyForge] Podman not found, installing..."
+    sudo apt update
+    sudo apt install -y podman
+else
+    echo "[MintyForge] Podman is already installed, skipping..."
+fi
+
+# --- Distrobox ---
+if ! command -v distrobox &> /dev/null; then
+    echo "[MintyForge] Distrobox not found, installing..."
+    # Installation via le script officiel
+    curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh
+else
+    echo "[MintyForge] Distrobox is already installed, skipping..."
+fi
+
+echo "[MintyForge] APT installation completed."
