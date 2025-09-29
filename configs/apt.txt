@@ -16,9 +16,7 @@ gtk2-engines-murrine
 gtk2-engines-pixbuf
 lshw
 clamtk
-ttf-mscorefonts-installer
 ubuntu-restricted-extras
-podman
 curl
 wget
 plymouth-themes

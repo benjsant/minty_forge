@@ -30,14 +30,14 @@ main_menu() {
 
   case $choice in
     1) sudo apt update -y && sudo apt upgrade -y ;;
-    2) ./scripts/apt_install.sh ;;
-    3) ./scripts/apt_remove.sh ;;
-    4) ./scripts/flatpak_install.sh ;;
-    5) ./scripts/themes_user.sh ;;
-    6) ./scripts/themes_system.sh ;;
-    7) ./scripts/drivers.sh ;;
-    8) ./scripts/qt_setup.sh && ./scripts/qt_apply.sh ;;
-    9) ./scripts/distroscript.sh ;;
+    2) ./scripts/apt_install ;;
+    3) ./scripts/apt_remove ;;
+    4) ./scripts/flatpak_install ;;
+    5) ./scripts/themes_user;;
+    6) ./scripts/themes_system;;
+    7) ./scripts/drivers ;;
+    8) ./scripts/qt_setup && ./scripts/qt_apply ;;
+    9) ./scripts/distroscript ;;
     0) exit 0 ;;
     *) echo "Invalid option" ;;
   esac
