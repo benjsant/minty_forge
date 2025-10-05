@@ -1,7 +1,28 @@
 #!/bin/bash
-# Clone and run Distroscript
-if [ ! -d "distroscript" ]; then
-  git clone https://github.com/benjsant/distroscript.git
+# MintyForge - Clone and run Distroscript
+
+set -e
+
+# -------- Terminal Colors --------
+GREEN="\e[32m"
+BLUE="\e[34m"
+RESET="\e[0m"
+
+info() { echo -e "${BLUE}[INFO]${RESET} $1"; }
+success() { echo -e "${GREEN}[OK]${RESET} $1"; }
+
+REPO_DIR="distroscript"
+REPO_URL="https://github.com/benjsant/distroscript.git"
+
+if [ ! -d "$REPO_DIR" ]; then
+    info "Cloning Distroscript repository..."
+    git clone "$REPO_URL" "$REPO_DIR"
+    success "Repository cloned."
+else
+    info "Distroscript already exists, skipping clone."
 fi
-cd distroscript
+
+cd "$REPO_DIR"
+info "Running Distroscript..."
 ./distroscript.sh
+success "Distroscript executed."

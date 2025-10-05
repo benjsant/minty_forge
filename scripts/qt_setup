@@ -1,5 +1,0 @@
-#!/bin/bash
-sudo apt install -y qt5ct qt5-style-plugins kvantum qt6ct
-if ! grep -q "QT_QPA_PLATFORMTHEME=qt5ct" /etc/environment; then
-  echo "QT_QPA_PLATFORMTHEME=qt5ct" | sudo tee -a /etc/environment
-fi

@@ -5,6 +5,11 @@
 LOGFILE="logs/mintyforge.log"
 mkdir -p logs
 
+if ! ping -c 1 archive.ubuntu.com &>/dev/null; then
+    echo "⚠️ No Internet connection detected. Please connect and retry."
+    exit 1
+fi
+
 # Disable suspend & screensaver temporarily
 gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout 0
 gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 0
@@ -15,29 +20,25 @@ sudo apt update -y && sudo apt upgrade -y
 main_menu() {
   clear
   echo "=== MintyForge ==="
-  echo "1) Update & Upgrade"
-  echo "2) Install APT packages"
-  echo "3) Remove unwanted APT packages"
-  echo "4) Install Flatpaks"
-  echo "5) Install User Themes (GTK, Icons, Cursors)"
-  echo "6) Install System Themes + Greeter"
-  echo "7) Configure Drivers"
-  echo "8) Configure Qt Apps (setup + theme)"
-  echo "9) Run Distroscript"
+  echo "1) Install APT packages"
+  echo "2) Remove unwanted APT packages"
+  echo "3) Install Flatpaks"
+  echo "4) Install User Themes (GTK, Icons, Cursors)"
+  echo "5) Configure Drivers"
+  echo "6) Configure Qt Apps"
+  echo "7) Run Distroscript"
   echo "0) Exit"
   echo
   read -p "Choose an option: " choice
 
   case $choice in
-    1) sudo apt update -y && sudo apt upgrade -y ;;
-    2) ./scripts/apt_install ;;
-    3) ./scripts/apt_remove ;;
-    4) ./scripts/flatpak_install ;;
-    5) ./scripts/themes_user;;
-    6) ./scripts/themes_system;;
-    7) ./scripts/drivers ;;
-    8) ./scripts/qt_setup && ./scripts/qt_apply ;;
-    9) ./scripts/distroscript ;;
+    1) ./scripts/apt_install ;;
+    2) ./scripts/apt_remove ;;
+    3) ./scripts/flatpak_install ;;
+    4) ./scripts/themes_install;;
+    5) ./scripts/drivers ;;
+    6) ./scripts/qt_install ;;
+    7) ./scripts/distroscript ;;
     0) exit 0 ;;
     *) echo "Invalid option" ;;
   esac

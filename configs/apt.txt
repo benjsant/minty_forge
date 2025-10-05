@@ -9,7 +9,6 @@ pavucontrol
 gparted
 scrcpy
 git
-sassc
 ncdu
 numlockx
 gtk2-engines-murrine
@@ -22,3 +21,6 @@ wget
 plymouth-themes
 weston
 sassc
+ttf-mscorefonts-installer
+fonts-firacode
+fonts-dejavu
