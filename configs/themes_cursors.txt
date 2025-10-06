@@ -1,0 +1,4 @@
+oreo_cursors§https://github.com/milkmadedev/oreo-cursors-compiled
+Bibate-Modern-Ice
+Bibate-Modern-Classic
+GoogleDot-Black
