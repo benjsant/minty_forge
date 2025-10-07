@@ -24,3 +24,4 @@ sassc
 ttf-mscorefonts-installer
 fonts-firacode
 fonts-dejavu
+crudini

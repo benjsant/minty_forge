@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# MintyForge – Universal Theme Installer (Cinnamon edition)
-# Linux Mint 22 – Bash script with debugging helpers
+# MintyForge – Universal Theme Installer (Cinnamon Edition)
+# Linux Mint 22 – Robust version with clean output capture and safer operations
 
 set -euo pipefail
 
@@ -21,21 +21,22 @@ else
     RESET=""
 fi
 
-info()    { echo -e "${BLUE}[INFO]${RESET} $*"; }
-success() { echo -e "${GREEN}[OK]${RESET} $*"; }
-warn()    { echo -e "${YELLOW}[WARN]${RESET} $*"; }
-error()   { echo -e "${RED}[ERROR]${RESET} $*"; }
+info()    { echo -e "${BLUE}[INFO]${RESET} $*" >&2; }
+success() { echo -e "${GREEN}[OK]${RESET} $*" >&2; }
+warn()    { echo -e "${YELLOW}[WARN]${RESET} $*" >&2; }
+error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; }
 
 # -----------------------------------------------------------------
 # Détection de l'utilisateur actif
 # -----------------------------------------------------------------
 USER_NAME=$(who | awk '{print $1}' | head -n1)
 USER_HOME=$(eval echo "~$USER_NAME")
+
 if [[ -z $USER_NAME ]]; then
     error "Impossible de détecter l'utilisateur."
     exit 1
 fi
-info "Utilisateur détecté : $USER_NAME ($USER_HOME)"
+info "Utilisateur détecté : $USER_NAME ($USER_HOME)"
 
 # -----------------------------------------------------------------
 # Chemins
@@ -54,7 +55,7 @@ mkdir -p "$THEMES_DIR" "$ICONS_DIR" "$CURSORS_DIR"
 # -----------------------------------------------------------------
 if [[ -f "$DCONF_FILE" ]]; then
     info "Chargement du fichier dconf de base…"
-    sudo -u "$USER_NAME" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u $USER_NAME)/bus" \
+    sudo -u "$USER_NAME" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u "$USER_NAME")/bus" \
         dconf load / < "$DCONF_FILE"
     success "dconf de base chargé."
 else
@@ -76,20 +77,20 @@ list_themes() {
         exit 1
     fi
 
-    info "Thèmes $type disponibles :"
+    info "Thèmes $type disponibles :"
     while IFS="|" read -r name url cmd_user cmd_root; do
         [[ -z $name ]] && continue
-        printf "  %2d) %s\n" "$i" "$name"
+        printf "  %2d) %s\n" "$i" "$name" >&2
         names[$i]="$name"
         urls[$i]="$url|$cmd_user|$cmd_root"
         ((i++))
     done < "$file"
 
-    # boucle de validation du choix
     local choice
     while true; do
-        read -p "Choisissez un thème $type (numéro) : " choice
+        read -p "Choisissez un thème $type (numéro) : " choice
         if [[ $choice =~ ^[0-9]+$ ]] && (( choice > 0 && choice < i )); then
+            # 🔹 Seule cette ligne est envoyée sur stdout (capturable)
             echo "${names[$choice]}|${urls[$choice]}"
             return 0
         else
@@ -99,7 +100,7 @@ list_themes() {
 }
 
 # -----------------------------------------------------------------
-# Sélection des thèmes
+# Sélection des thèmes (capturent uniquement le choix)
 # -----------------------------------------------------------------
 GTK_INFO=$(list_themes "$CONFIG_DIR/themes_gtk.txt" "GTK")
 ICON_INFO=$(list_themes "$CONFIG_DIR/themes_icons.txt" "Icons")
@@ -109,9 +110,9 @@ IFS='|' read -r GTK_THEME GTK_URL GTK_CMD_USER GTK_CMD_ROOT <<< "$GTK_INFO"
 IFS='|' read -r ICON_THEME ICON_URL ICON_CMD_USER ICON_CMD_ROOT <<< "$ICON_INFO"
 IFS='|' read -r CURSOR_THEME CURSOR_URL CURSOR_CMD_USER CURSOR_CMD_ROOT <<< "$CURSOR_INFO"
 
-info "Thème GTK choisi : $GTK_THEME"
-info "Thème icônes choisi : $ICON_THEME"
-info "Thème curseur choisi : $CURSOR_THEME"
+info "Thème GTK choisi : $GTK_THEME"
+info "Thème icônes choisi : $ICON_THEME"
+info "Thème curseur choisi : $CURSOR_THEME"
 
 # -----------------------------------------------------------------
 # Fonction d'installation d'un thème (clone + commandes)
@@ -119,11 +120,16 @@ info "Thème curseur choisi : $CURSOR_THEME"
 install_theme() {
     local name=$1 url=$2 cmd_user=$3 cmd_root=$4 target_dir=$5
 
+    if [[ -z "$name" ]]; then
+        error "Nom de thème vide — abandon."
+        exit 1
+    fi
+
     # Clone si besoin
     if [[ -n $url && ! -d "$target_dir" ]]; then
         info "Clonage de $name…"
         git clone --depth=1 "$url" "$target_dir" 2>git_err.log || {
-            error "Échec du clone de $name : $(cat git_err.log)"
+            error "Échec du clone de $name : $(cat git_err.log)"
             exit 1
         }
         success "Clonage terminé."
@@ -131,14 +137,14 @@ install_theme() {
         warn "Répertoire $target_dir déjà présent – pas de clone."
     fi
 
-    # Propriété du répertoire (évite les problèmes sudo)
+    # Propriété correcte
     sudo chown -R "$USER_NAME":"$USER_NAME" "$target_dir"
 
     # Commande user
     if [[ -n $cmd_user ]]; then
-        info "Exécution de la commande d'installation (user) pour $name…"
+        info "Exécution de la commande (user) pour $name…"
         (cd "$target_dir" && eval "$cmd_user") 2>user_err.log || {
-            error "Erreur user pour $name : $(cat user_err.log)"
+            error "Erreur user pour $name : $(cat user_err.log)"
             exit 1
         }
         success "Installation user terminée."
@@ -146,9 +152,9 @@ install_theme() {
 
     # Commande root
     if [[ -n $cmd_root ]]; then
-        info "Exécution de la commande d'installation (root) pour $name…"
+        info "Exécution de la commande (root) pour $name…"
         (cd "$target_dir" && sudo bash -c "$cmd_root") 2>root_err.log || {
-            error "Erreur root pour $name : $(cat root_err.log)"
+            error "Erreur root pour $name : $(cat root_err.log)"
             exit 1
         }
         success "Installation root terminée."
@@ -163,23 +169,20 @@ install_theme "$ICON_THEME"  "$ICON_URL"  "$ICON_CMD_USER"  "$ICON_CMD_ROOT"  "$
 install_theme "$CURSOR_THEME" "$CURSOR_URL" "$CURSOR_CMD_USER" "$CURSOR_CMD_ROOT" "$CURSORS_DIR/$CURSOR_THEME"
 
 # -----------------------------------------------------------------
-# Récupération du bus DBus du compte cible (plus fiable)
+# DBus + gsettings (Cinnamon)
 # -----------------------------------------------------------------
 USER_DBUS=$(sudo -u "$USER_NAME" dbus-launch --sh-syntax |
             grep -E '^DBUS_SESSION_BUS_ADDRESS' |
             cut -d= -f2-)
 export DBUS_SESSION_BUS_ADDRESS=$USER_DBUS
-export DISPLAY=:0   # nécessaire pour gsettings
+export DISPLAY=:0
 
-# -----------------------------------------------------------------
-# Application des thèmes via gsettings (Cinnamon)
-# -----------------------------------------------------------------
 apply_gsettings() {
     local schema=$1 key=$2 value=$3
     info "Application de $key → $value"
     sudo -u "$USER_NAME" \
         gsettings set "$schema" "$key" "$value" 2>gsettings_err.log || {
-        error "gsettings échoué pour $key : $(cat gsettings_err.log)"
+        error "gsettings échoué pour $key : $(cat gsettings_err.log)"
         exit 1
     }
     success "$key appliqué."
@@ -188,7 +191,6 @@ apply_gsettings() {
 apply_gsettings org.cinnamon.desktop.interface gtk-theme   "$GTK_THEME"
 apply_gsettings org.cinnamon.desktop.interface icon-theme  "$ICON_THEME"
 apply_gsettings org.cinnamon.desktop.interface cursor-theme "$CURSOR_THEME"
-# Schéma correct sous Mint 22
 apply_gsettings org.cinnamon.desktop.wm.preferences theme "$GTK_THEME"
 
 # -----------------------------------------------------------------
@@ -200,9 +202,9 @@ verify_theme() {
     current=$(sudo -u "$USER_NAME" \
         gsettings get "$schema" "$key" 2>/dev/null | tr -d "'")
     if [[ $current == "$expected" ]]; then
-        success "Vérif : $key = $expected"
+        success "Vérif : $key = $expected"
     else
-        warn "Vérif : $key attendu $expected, obtenu $current"
+        warn "Vérif : $key attendu $expected, obtenu $current"
     fi
 }
 
@@ -212,11 +214,11 @@ verify_theme org.cinnamon.desktop.interface cursor-theme "$CURSOR_THEME"
 verify_theme org.cinnamon.desktop.wm.preferences theme   "$GTK_THEME"
 
 # -----------------------------------------------------------------
-# Mise à jour du greeter LightDM (slick-greeter)
+# Mise à jour du greeter LightDM
 # -----------------------------------------------------------------
 if ! command -v crudini >/dev/null; then
     warn "crudini absent – installation automatique."
     sudo apt-get update && sudo apt-get install -y crudini
 fi
 
-
+success "Installation complète terminée 🎉"
