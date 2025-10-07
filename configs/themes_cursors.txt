@@ -1,4 +1,7 @@
-oreo_cursors§https://github.com/milkmadedev/oreo-cursors-compiled
-Bibate-Modern-Ice
-Bibate-Modern-Classic
-GoogleDot-Black
+oreo-cursor-blue|https://github.com/milkmadedev/oreo-cursors-compiled.git|cp -r Oreo-Blue ~/.icons/|cp -r|Oreo-Blue /usr/share/icons/
+oreo_spark_blue_cursors|https://github.com/milkmadedev/oreo-cursors-compiled.git|cp -r oreo_spark_blue_cursors ~/.icons/|cp -r oreo_spark_blue_cursors /usr/share/icons/
+Bibate-Modern-Ice|||
+Bibate-Modern-Classic|||
+GoogleDot-Black|||
+Oreo-Blue|https://github.com/vinceliuice/Oreo-cursors.git|cp -r Oreo-Blue ~/.icons/|cp -r Oreo-Blue /usr/share/icons/
+

@@ -1,133 +1,222 @@
-#!/bin/bash
-# MintyForge - GTK/Icon/Cursor Themes Installer
-# Handles dconf load, user & system themes, slick-greeter, and install.sh for themes
+#!/usr/bin/env bash
+# MintyForge – Universal Theme Installer (Cinnamon edition)
+# Linux Mint 22 – Bash script with debugging helpers
 
-set -e
+set -euo pipefail
 
-# -------- Terminal Colors --------
-GREEN="\e[32m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-RED="\e[31m"
-RESET="\e[0m"
+# -----------------------------------------------------------------
+# Couleurs (si le terminal supporte le texte coloré)
+# -----------------------------------------------------------------
+if [ -t 1 ]; then
+    GREEN="\e[32m"
+    YELLOW="\e[33m"
+    BLUE="\e[34m"
+    RED="\e[31m"
+    RESET="\e[0m"
+else
+    GREEN=""
+    YELLOW=""
+    BLUE=""
+    RED=""
+    RESET=""
+fi
 
-info() { echo -e "${BLUE}[INFO]${RESET} $1"; }
-success() { echo -e "${GREEN}[OK]${RESET} $1"; }
-warn() { echo -e "${YELLOW}[WARN]${RESET} $1"; }
-error() { echo -e "${RED}[ERROR]${RESET} $1"; }
+info()    { echo -e "${BLUE}[INFO]${RESET} $*"; }
+success() { echo -e "${GREEN}[OK]${RESET} $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${RESET} $*"; }
+error()   { echo -e "${RED}[ERROR]${RESET} $*"; }
 
-# -------- Variables --------
-USER_NAME=$(logname)
-USER_HOME=$(eval echo ~$USER_NAME)
+# -----------------------------------------------------------------
+# Détection de l'utilisateur actif
+# -----------------------------------------------------------------
+USER_NAME=$(who | awk '{print $1}' | head -n1)
+USER_HOME=$(eval echo "~$USER_NAME")
+if [[ -z $USER_NAME ]]; then
+    error "Impossible de détecter l'utilisateur."
+    exit 1
+fi
+info "Utilisateur détecté : $USER_NAME ($USER_HOME)"
 
+# -----------------------------------------------------------------
+# Chemins
+# -----------------------------------------------------------------
 CONFIG_DIR="./configs"
 THEMES_DIR="./themes"
 ICONS_DIR="./icons"
 CURSORS_DIR="./cursors"
-DCONF_FILE="$CONFIG_DIR/dconf_base_clean.conf"
+DCONF_FILE="$CONFIG_DIR/dconf_base"
 SLICK_CONF="/etc/lightdm/slick-greeter.conf"
 
 mkdir -p "$THEMES_DIR" "$ICONS_DIR" "$CURSORS_DIR"
 
-# -------- Load Base dconf --------
-if [ -f "$DCONF_FILE" ]; then
-    info "Loading base dconf settings..."
-    sudo -u "$USER_NAME" dconf load / < "$DCONF_FILE"
-    success "Base dconf loaded."
+# -----------------------------------------------------------------
+# Chargement du dconf de base (si présent)
+# -----------------------------------------------------------------
+if [[ -f "$DCONF_FILE" ]]; then
+    info "Chargement du fichier dconf de base…"
+    sudo -u "$USER_NAME" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u $USER_NAME)/bus" \
+        dconf load / < "$DCONF_FILE"
+    success "dconf de base chargé."
 else
-    warn "dconf base file not found, skipping..."
+    warn "Fichier dconf de base introuvable – passage."
 fi
 
-# -------- Function to select theme --------
-select_theme() {
-    local file=$1
-    local type=$2
-    declare -A THEMES
-    i=1
-    info "Available $type themes:"
-    while IFS="§" read -r name url; do
-        echo "$i) $name"
-        THEMES[$i]="$name§$url"
+# -----------------------------------------------------------------
+# Fonction d'affichage de la liste des thèmes
+# -----------------------------------------------------------------
+# $1 = fichier de configuration (ex. themes_gtk.txt)
+# $2 = type affiché (GTK, Icons, Cursor)
+list_themes() {
+    local file=$1 type=$2
+    local -a names urls
+    local i=1
+
+    if [[ ! -f "$file" ]]; then
+        error "Fichier de thèmes $file introuvable."
+        exit 1
+    fi
+
+    info "Thèmes $type disponibles :"
+    while IFS="|" read -r name url cmd_user cmd_root; do
+        [[ -z $name ]] && continue
+        printf "  %2d) %s\n" "$i" "$name"
+        names[$i]="$name"
+        urls[$i]="$url|$cmd_user|$cmd_root"
         ((i++))
     done < "$file"
 
-    read -p "Choose a $type theme (number): " choice
-    THEME_NAME=$(echo "${THEMES[$choice]}" | cut -d'§' -f1)
-    THEME_URL=$(echo "${THEMES[$choice]}" | cut -d'§' -f2)
-
-    info "Selected $type theme: $THEME_NAME"
-
-    # Determine target folder
-    TARGET_DIR=""
-    case $type in
-        GTK) TARGET_DIR="$THEMES_DIR/$THEME_NAME" ;;
-        Icons) TARGET_DIR="$ICONS_DIR/$THEME_NAME" ;;
-        Cursor) TARGET_DIR="$CURSORS_DIR/$THEME_NAME" ;;
-    esac
-
-    # Clone if URL is present
-    if [ -n "$THEME_URL" ]; then
-        if [ ! -d "$TARGET_DIR" ]; then
-            info "Cloning $THEME_NAME..."
-            git clone "$THEME_URL" "$TARGET_DIR"
-            success "$THEME_NAME cloned."
-            
-            # Run install.sh if it exists
-            if [ -f "$TARGET_DIR/install.sh" ]; then
-                info "Running install.sh for $THEME_NAME..."
-                chmod +x "$TARGET_DIR/install.sh"
-                case $type in
-                    GTK)
-                        "$TARGET_DIR/install.sh" -d "$USER_HOME/.themes" -c dark
-                        ;;
-                    Icons)
-                        "$TARGET_DIR/install.sh" -d "$USER_HOME/.icons"
-                        ;;
-                    Cursor)
-                        "$TARGET_DIR/install.sh" -d "$USER_HOME/.icons"
-                        ;;
-                esac
-                success "$THEME_NAME installed via install.sh."
-            fi
+    # boucle de validation du choix
+    local choice
+    while true; do
+        read -p "Choisissez un thème $type (numéro) : " choice
+        if [[ $choice =~ ^[0-9]+$ ]] && (( choice > 0 && choice < i )); then
+            echo "${names[$choice]}|${urls[$choice]}"
+            return 0
         else
-            warn "$THEME_NAME already cloned, skipping."
+            warn "Numéro invalide – réessayez."
         fi
-    else
-        info "$THEME_NAME uses system theme, skipping clone."
-    fi
-
-    echo "$THEME_NAME"
+    done
 }
 
-# -------- Selection --------
-GTK_THEME=$(select_theme "$CONFIG_DIR/themes_gtk.txt" GTK)
-ICON_THEME=$(select_theme "$CONFIG_DIR/themes_icons.txt" Icons)
-CURSOR_THEME=$(select_theme "$CONFIG_DIR/themes_cursors.txt" Cursor)
+# -----------------------------------------------------------------
+# Sélection des thèmes
+# -----------------------------------------------------------------
+GTK_INFO=$(list_themes "$CONFIG_DIR/themes_gtk.txt" "GTK")
+ICON_INFO=$(list_themes "$CONFIG_DIR/themes_icons.txt" "Icons")
+CURSOR_INFO=$(list_themes "$CONFIG_DIR/themes_cursors.txt" "Cursor")
 
-# -------- Copy themes system-wide if cloned --------
-[ -d "$THEMES_DIR/$GTK_THEME" ] && sudo cp -r "$THEMES_DIR/$GTK_THEME" /usr/share/themes/
-[ -d "$ICONS_DIR/$ICON_THEME" ] && sudo cp -r "$ICONS_DIR/$ICON_THEME" /usr/share/icons/
-[ -d "$CURSORS_DIR/$CURSOR_THEME" ] && sudo cp -r "$CURSORS_DIR/$CURSOR_THEME" /usr/share/icons/
+IFS='|' read -r GTK_THEME GTK_URL GTK_CMD_USER GTK_CMD_ROOT <<< "$GTK_INFO"
+IFS='|' read -r ICON_THEME ICON_URL ICON_CMD_USER ICON_CMD_ROOT <<< "$ICON_INFO"
+IFS='|' read -r CURSOR_THEME CURSOR_URL CURSOR_CMD_USER CURSOR_CMD_ROOT <<< "$CURSOR_INFO"
 
-# -------- Copy themes for user --------
-mkdir -p "$USER_HOME/.themes" "$USER_HOME/.icons"
-[ -d "$THEMES_DIR/$GTK_THEME" ] && cp -r "$THEMES_DIR/$GTK_THEME" "$USER_HOME/.themes/"
-[ -d "$ICONS_DIR/$ICON_THEME" ] && cp -r "$ICONS_DIR/$ICON_THEME" "$USER_HOME/.icons/"
-[ -d "$CURSORS_DIR/$CURSOR_THEME" ] && cp -r "$CURSORS_DIR/$CURSOR_THEME" "$USER_HOME/.icons/"
-chown -R $USER_NAME:$USER_NAME "$USER_HOME/.themes" "$USER_HOME/.icons"
+info "Thème GTK choisi : $GTK_THEME"
+info "Thème icônes choisi : $ICON_THEME"
+info "Thème curseur choisi : $CURSOR_THEME"
 
-# -------- Apply themes via gsettings --------
-sudo -u $USER_NAME gsettings set org.cinnamon.desktop.interface gtk-theme "$GTK_THEME"
-sudo -u $USER_NAME gsettings set org.cinnamon.desktop.interface icon-theme "$ICON_THEME"
-sudo -u $USER_NAME gsettings set org.cinnamon.desktop.interface cursor-theme "$CURSOR_THEME"
-sudo -u $USER_NAME gsettings set org.cinnamon.theme name "$GTK_THEME"
-success "User session themes applied."
+# -----------------------------------------------------------------
+# Fonction d'installation d'un thème (clone + commandes)
+# -----------------------------------------------------------------
+install_theme() {
+    local name=$1 url=$2 cmd_user=$3 cmd_root=$4 target_dir=$5
 
-# -------- Apply themes to slick-greeter --------
-sudo touch $SLICK_CONF
-sudo crudini --set $SLICK_CONF Greeter theme-name "$GTK_THEME"
-sudo crudini --set $SLICK_CONF Greeter icon-theme-name "$ICON_THEME"
-sudo crudini --set $SLICK_CONF Greeter cursor-theme-name "$CURSOR_THEME"
-success "Slick-greeter updated."
+    # Clone si besoin
+    if [[ -n $url && ! -d "$target_dir" ]]; then
+        info "Clonage de $name…"
+        git clone --depth=1 "$url" "$target_dir" 2>git_err.log || {
+            error "Échec du clone de $name : $(cat git_err.log)"
+            exit 1
+        }
+        success "Clonage terminé."
+    else
+        warn "Répertoire $target_dir déjà présent – pas de clone."
+    fi
 
-echo -e "${GREEN}[MintyForge] ✅ All themes applied successfully!${RESET}"
+    # Propriété du répertoire (évite les problèmes sudo)
+    sudo chown -R "$USER_NAME":"$USER_NAME" "$target_dir"
+
+    # Commande user
+    if [[ -n $cmd_user ]]; then
+        info "Exécution de la commande d'installation (user) pour $name…"
+        (cd "$target_dir" && eval "$cmd_user") 2>user_err.log || {
+            error "Erreur user pour $name : $(cat user_err.log)"
+            exit 1
+        }
+        success "Installation user terminée."
+    fi
+
+    # Commande root
+    if [[ -n $cmd_root ]]; then
+        info "Exécution de la commande d'installation (root) pour $name…"
+        (cd "$target_dir" && sudo bash -c "$cmd_root") 2>root_err.log || {
+            error "Erreur root pour $name : $(cat root_err.log)"
+            exit 1
+        }
+        success "Installation root terminée."
+    fi
+}
+
+# -----------------------------------------------------------------
+# Installation des trois catégories
+# -----------------------------------------------------------------
+install_theme "$GTK_THEME"   "$GTK_URL"   "$GTK_CMD_USER"   "$GTK_CMD_ROOT"   "$THEMES_DIR/$GTK_THEME"
+install_theme "$ICON_THEME"  "$ICON_URL"  "$ICON_CMD_USER"  "$ICON_CMD_ROOT"  "$ICONS_DIR/$ICON_THEME"
+install_theme "$CURSOR_THEME" "$CURSOR_URL" "$CURSOR_CMD_USER" "$CURSOR_CMD_ROOT" "$CURSORS_DIR/$CURSOR_THEME"
+
+# -----------------------------------------------------------------
+# Récupération du bus DBus du compte cible (plus fiable)
+# -----------------------------------------------------------------
+USER_DBUS=$(sudo -u "$USER_NAME" dbus-launch --sh-syntax |
+            grep -E '^DBUS_SESSION_BUS_ADDRESS' |
+            cut -d= -f2-)
+export DBUS_SESSION_BUS_ADDRESS=$USER_DBUS
+export DISPLAY=:0   # nécessaire pour gsettings
+
+# -----------------------------------------------------------------
+# Application des thèmes via gsettings (Cinnamon)
+# -----------------------------------------------------------------
+apply_gsettings() {
+    local schema=$1 key=$2 value=$3
+    info "Application de $key → $value"
+    sudo -u "$USER_NAME" \
+        gsettings set "$schema" "$key" "$value" 2>gsettings_err.log || {
+        error "gsettings échoué pour $key : $(cat gsettings_err.log)"
+        exit 1
+    }
+    success "$key appliqué."
+}
+
+apply_gsettings org.cinnamon.desktop.interface gtk-theme   "$GTK_THEME"
+apply_gsettings org.cinnamon.desktop.interface icon-theme  "$ICON_THEME"
+apply_gsettings org.cinnamon.desktop.interface cursor-theme "$CURSOR_THEME"
+# Schéma correct sous Mint 22
+apply_gsettings org.cinnamon.desktop.wm.preferences theme "$GTK_THEME"
+
+# -----------------------------------------------------------------
+# Vérification des valeurs appliquées
+# -----------------------------------------------------------------
+verify_theme() {
+    local schema=$1 key=$2 expected=$3
+    local current
+    current=$(sudo -u "$USER_NAME" \
+        gsettings get "$schema" "$key" 2>/dev/null | tr -d "'")
+    if [[ $current == "$expected" ]]; then
+        success "Vérif : $key = $expected"
+    else
+        warn "Vérif : $key attendu $expected, obtenu $current"
+    fi
+}
+
+verify_theme org.cinnamon.desktop.interface gtk-theme   "$GTK_THEME"
+verify_theme org.cinnamon.desktop.interface icon-theme  "$ICON_THEME"
+verify_theme org.cinnamon.desktop.interface cursor-theme "$CURSOR_THEME"
+verify_theme org.cinnamon.desktop.wm.preferences theme   "$GTK_THEME"
+
+# -----------------------------------------------------------------
+# Mise à jour du greeter LightDM (slick-greeter)
+# -----------------------------------------------------------------
+if ! command -v crudini >/dev/null; then
+    warn "crudini absent – installation automatique."
+    sudo apt-get update && sudo apt-get install -y crudini
+fi
+
+
