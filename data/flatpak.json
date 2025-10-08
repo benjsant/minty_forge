@@ -1,0 +1,8 @@
+{
+  "flatpaks": [
+    {"source": "flathub", "app": "com.github.tchx84.Flatseal", "description": "Flatpak permission manager"},
+    {"source": "flathub", "app": "io.github.dvlv.boxbuddyrs", "description": "BoxBuddy app"},
+    {"source": "flathub", "app": "io.podman_desktop.PodmanDesktop", "description": "Podman Desktop GUI"},
+    {"source": "flathub", "app": "com.github.qarmin.czkawka", "description": "File cleaning tool"}
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "themes": [
+    {
+      "name": "oreo-cursor-blue",
+      "name_to_use": "Oreo-Blue",
+      "url": "https://github.com/milkmadedev/oreo-cursors-compiled.git",
+      "cmd_user": "cp -r Oreo-Blue ~/.icons/",
+      "cmd_root": "cp -r Oreo-Blue /usr/share/icons/",
+      "description": "Oreo blue cursors"
+    },
+    {
+      "name": "oreo_spark_blue_cursors",
+      "name_to_use": "oreo_spark_blue_cursors",
+      "url": "https://github.com/milkmadedev/oreo-cursors-compiled.git",
+      "cmd_user": "cp -r oreo_spark_blue_cursors ~/.icons/",
+      "cmd_root": "cp -r oreo_spark_blue_cursors /usr/share/icons/",
+      "description": "Oreo spark blue cursors"
+    },
+    {
+      "name": "Bibate-Modern-Ice",
+      "name_to_use": "Bibate-Modern-Ice",
+      "url": "",
+      "cmd_user": "",
+      "cmd_root": "",
+      "description": "Bibate Modern Ice cursors"
+    },
+    {
+      "name": "Bibate-Modern-Classic",
+      "name_to_use": "Bibate-Modern-Classic",
+      "url": "",
+      "cmd_user": "",
+      "cmd_root": "",
+      "description": "Bibate Modern Classic cursors"
+    },
+    {
+      "name": "GoogleDot-Black",
+      "name_to_use": "GoogleDot-Black",
+      "url": "",
+      "cmd_user": "",
+      "cmd_root": "",
+      "description": "Google Dot Black cursors"
+    },
+    {
+      "name": "Oreo-Blue",
+      "name_to_use": "Oreo-Blue",
+      "url": "https://github.com/vinceliuice/Oreo-cursors.git",
+      "cmd_user": "cp -r Oreo-Blue ~/.icons/",
+      "cmd_root": "cp -r Oreo-Blue /usr/share/icons/",
+      "description": "Oreo blue cursors"
+    }
+  ]
+}

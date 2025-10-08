@@ -1,0 +1,20 @@
+{
+  "themes": [
+    {
+      "name": "Tela-icons",
+      "name_to_use": "Tela",
+      "url": "https://github.com/vinceliuice/Tela-icon-theme.git",
+      "cmd_user": "bash install.sh -a -d ~/.icons",
+      "cmd_root": "bash install.sh -d /usr/share/icons -a",
+      "description": "Tela icon theme"
+    },
+    {
+      "name": "Papirus",
+      "name_to_use": "Papirus",
+      "url": "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme.git",
+      "cmd_user": "cp -r Papirus ~/.icons/",
+      "cmd_root": "cp -r Papirus /usr/share/icons/",
+      "description": "Papirus icon theme"
+    }
+  ]
+}

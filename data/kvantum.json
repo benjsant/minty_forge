@@ -1,0 +1,20 @@
+[
+  {
+    "theme": "Fusion",
+    "description": "Default Qt Fusion theme",
+    "cmd_user": "sed -i 's/^style=.*/style=Fusion/' ~/.config/qt5ct/qt5ct.conf ~/.config/qt6ct/qt6ct.conf",
+    "cmd_root": ""
+  },
+  {
+    "theme": "Windows",
+    "description": "Windows-style Qt theme",
+    "cmd_user": "sed -i 's/^style=.*/style=Windows/' ~/.config/qt5ct/qt5ct.conf ~/.config/qt6ct/qt6ct.conf",
+    "cmd_root": ""
+  },
+  {
+    "theme": "Kvantum",
+    "description": "Kvantum theme engine",
+    "cmd_user": "sed -i 's/^style=.*/style=kvantum/' ~/.config/qt5ct/qt5ct.conf ~/.config/qt6ct/qt6ct.conf",
+    "cmd_root": ""
+  }
+]
