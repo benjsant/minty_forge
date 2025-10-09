@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 MintyForge – Theme Installer (Curses Edition)
-Replaces Bash 'themes_install', integrates with minty_forge.py
+----------------------------------------------
+Interactive desktop theming utility for Linux Mint Cinnamon.
+Loads dconf base layout first, installs themes (GTK, icons, cursors),
+and applies them system-wide.
 """
 
 import os
@@ -31,7 +35,7 @@ def log_error(msg): print(f"[ERROR] {msg}"); logging.error(msg)
 
 
 # ---------------------------------------------------------------------
-# User detection & paths
+# User detection & directories
 # ---------------------------------------------------------------------
 USER_NAME = os.getenv("SUDO_USER") or os.getenv("USER")
 USER_HOME = str(Path(f"~{USER_NAME}").expanduser())
@@ -51,8 +55,9 @@ os.makedirs(THEMES_DIR, exist_ok=True)
 os.makedirs(ICONS_DIR, exist_ok=True)
 os.makedirs(CURSORS_DIR, exist_ok=True)
 
+
 # ---------------------------------------------------------------------
-# JSON loader
+# Load JSON files
 # ---------------------------------------------------------------------
 def load_json(file_path):
     try:
@@ -71,7 +76,7 @@ cursors_data = load_json(os.path.join(CONFIG_DIR, "cursors.json"))
 # Helper functions
 # ---------------------------------------------------------------------
 def run_cmd(cmd, cwd=None, as_root=False):
-    """Execute a shell command."""
+    """Execute shell command safely."""
     try:
         cmd_full = ["sudo", "bash", "-c", cmd] if as_root else ["bash", "-c", cmd]
         subprocess.run(cmd_full, cwd=cwd, check=True)
@@ -81,7 +86,7 @@ def run_cmd(cmd, cwd=None, as_root=False):
 
 
 def install_theme(theme, target_dir):
-    """Clone and install a theme."""
+    """Clone and install theme with optional user/root commands."""
     name = theme["name"]
     url = theme.get("url", "")
     cmd_user = theme.get("cmd_user", "")
@@ -89,7 +94,7 @@ def install_theme(theme, target_dir):
 
     log_info(f"Installing {name}...")
 
-    # Clone repo
+    # Clone repository
     if url and not os.path.isdir(target_dir):
         log_info(f"Cloning {url} into {target_dir}")
         subprocess.run(["git", "clone", "--depth=1", url, target_dir], check=False)
@@ -100,7 +105,7 @@ def install_theme(theme, target_dir):
 
     subprocess.run(["sudo", "chown", "-R", f"{USER_NAME}:{USER_NAME}", target_dir], check=False)
 
-    # Run commands
+    # Execute optional setup commands
     if cmd_user:
         log_info(f"Running user command for {name}")
         run_cmd(cmd_user, cwd=target_dir, as_root=False)
@@ -138,7 +143,7 @@ def verify_gsettings(schema, key, expected):
 
 
 # ---------------------------------------------------------------------
-# Curses menu for theme selection
+# Curses UI for theme selection
 # ---------------------------------------------------------------------
 def select_theme(stdscr, themes, category):
     curses.curs_set(0)
@@ -173,27 +178,45 @@ def select_theme(stdscr, themes, category):
             selected_idx -= 1
         elif key == curses.KEY_DOWN and selected_idx < len(themes) - 1:
             selected_idx += 1
-        elif key in [10, 13]:  # Enter key
+        elif key in [10, 13]:  # ENTER
             return themes[selected_idx]
 
 
 # ---------------------------------------------------------------------
-# Main process
+# Main curses installer
 # ---------------------------------------------------------------------
 def run_curses_installer(stdscr):
     stdscr.clear()
+    stdscr.addstr(2, 2, "[MintyForge] Preparing desktop environment...")
+    stdscr.refresh()
+
+    # 1️⃣ Load dconf configuration first
+    DC_CONF_FILE = "configs/dconf_base"
+    if os.path.exists(DC_CONF_FILE):
+        log_info(f"Loading base Cinnamon settings from {DC_CONF_FILE}")
+        try:
+            run_cmd(f"dconf load -f / < {DC_CONF_FILE}", as_root=False)
+            log_success("Desktop layout restored from dconf snapshot.")
+        except Exception as e:
+            log_warn(f"Could not import dconf: {e}")
+    else:
+        log_warn(f"No {DC_CONF_FILE} found, skipping base config.")
+
+    # 2️⃣ Select and install themes
     gtk = select_theme(stdscr, themes_data, "GTK")
     icon = select_theme(stdscr, icons_data, "Icon")
     cursor = select_theme(stdscr, cursors_data, "Cursor")
 
     stdscr.clear()
-    stdscr.addstr(2, 2, f"Installing themes...")
+    stdscr.addstr(2, 2, "Installing selected themes...")
     stdscr.refresh()
 
     install_theme(gtk, f"{THEMES_DIR}/{gtk['name_to_use']}")
     install_theme(icon, f"{ICONS_DIR}/{icon['name_to_use']}")
     install_theme(cursor, f"{CURSORS_DIR}/{cursor['name_to_use']}")
 
+    # 3️⃣ Apply and verify theme settings
+    log_info("Applying Cinnamon theme configuration...")
     apply_gsettings("org.cinnamon.desktop.interface", "gtk-theme", gtk["name_to_use"])
     apply_gsettings("org.cinnamon.desktop.interface", "icon-theme", icon["name_to_use"])
     apply_gsettings("org.cinnamon.desktop.interface", "cursor-theme", cursor["name_to_use"])
@@ -204,11 +227,14 @@ def run_curses_installer(stdscr):
     verify_gsettings("org.cinnamon.desktop.interface", "cursor-theme", cursor["name_to_use"])
     verify_gsettings("org.cinnamon.desktop.wm.preferences", "theme", gtk["name_to_use"])
 
-    stdscr.addstr(8, 2, "🎉 Theme installation completed successfully!")
+    stdscr.addstr(8, 2, "🎉 Theme installation and configuration completed successfully!")
     stdscr.addstr(10, 2, "Press any key to exit...")
     stdscr.refresh()
     stdscr.getch()
 
 
+# ---------------------------------------------------------------------
+# Entrypoint
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     curses.wrapper(run_curses_installer)
