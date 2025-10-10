@@ -4,14 +4,15 @@
 MintyForge – Theme Installer (Curses Edition)
 ----------------------------------------------
 Interactive desktop theming utility for Linux Mint Cinnamon.
-Loads dconf base layout first, installs themes (GTK, icons, cursors),
-and applies them both for the user and system (Slick Greeter).
+Applies Cinnamon theme settings via dconf rather than gsettings,
+and ensures Slick Greeter is configured properly.
 """
 
 import os
 import json
 import curses
 import subprocess
+import shutil
 import logging
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def log_error(msg): print(f"[ERROR] {msg}"); logging.error(msg)
 
 
 # ---------------------------------------------------------------------
-# User detection & directories
+# User detection
 # ---------------------------------------------------------------------
 USER_NAME = os.getenv("SUDO_USER") or os.getenv("USER")
 USER_HOME = str(Path(f"~{USER_NAME}").expanduser())
@@ -51,9 +52,8 @@ THEMES_DIR = "./themes"
 ICONS_DIR = "./icons"
 CURSORS_DIR = "./cursors"
 
-os.makedirs(THEMES_DIR, exist_ok=True)
-os.makedirs(ICONS_DIR, exist_ok=True)
-os.makedirs(CURSORS_DIR, exist_ok=True)
+for d in [THEMES_DIR, ICONS_DIR, CURSORS_DIR]:
+    os.makedirs(d, exist_ok=True)
 
 
 # ---------------------------------------------------------------------
@@ -78,15 +78,15 @@ cursors_data = load_json(os.path.join(CONFIG_DIR, "themes_cursors.json"))
 def run_cmd(cmd, cwd=None, as_root=False):
     """Execute shell command safely."""
     try:
-        cmd_full = ["sudo", "bash", "-c", cmd] if as_root else ["bash", "-c", cmd]
-        subprocess.run(cmd_full, cwd=cwd, check=True)
+        full_cmd = ["sudo", "bash", "-c", cmd] if as_root else ["bash", "-c", cmd]
+        subprocess.run(full_cmd, cwd=cwd, check=True)
     except subprocess.CalledProcessError as e:
         log_error(f"Command failed: {cmd}\n{e}")
         exit(1)
 
 
 def install_theme(theme, target_dir):
-    """Clone and install theme with optional user/root commands."""
+    """Clone and install theme with optional commands."""
     name = theme["name"]
     url = theme.get("url", "")
     cmd_user = theme.get("cmd_user", "")
@@ -94,77 +94,138 @@ def install_theme(theme, target_dir):
 
     log_info(f"Installing {name}...")
 
-    # Clone repository
     if url and not os.path.isdir(target_dir):
         log_info(f"Cloning {url} into {target_dir}")
         subprocess.run(["git", "clone", "--depth=1", url, target_dir], check=False)
-    elif os.path.isdir(target_dir):
-        log_warn(f"{target_dir} already exists, skipping clone.")
     else:
-        log_warn(f"No URL for {name}, skipping clone.")
+        log_warn(f"{target_dir} exists or no URL, skipping clone.")
 
     subprocess.run(["sudo", "chown", "-R", f"{USER_NAME}:{USER_NAME}", target_dir], check=False)
 
-    # Execute optional setup commands
     if cmd_user:
-        log_info(f"Running user command for {name}")
-        run_cmd(cmd_user, cwd=target_dir, as_root=False)
+        run_cmd(cmd_user, cwd=target_dir)
     if cmd_root:
-        log_info(f"Running root command for {name}")
         run_cmd(cmd_root, cwd=target_dir, as_root=True)
 
     log_success(f"Installation completed for {name}.")
 
 
-def apply_gsettings(schema, key, value):
-    log_info(f"Applying {key} → {value}")
-    try:
-        subprocess.run(
-            ["sudo", "-u", USER_NAME, "gsettings", "set", schema, key, value],
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        log_error(f"Failed to apply {key}: {e}")
+def ensure_crudini():
+    """Ensure crudini is installed."""
+    if shutil.which("crudini") is None:
+        log_warn("crudini not found, installing...")
+        run_cmd("apt-get update && apt-get install -y crudini", as_root=True)
 
 
-def verify_gsettings(schema, key, expected):
-    result = subprocess.run(
-        ["sudo", "-u", USER_NAME, "gsettings", "get", schema, key],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-    )
-    current = result.stdout.strip().replace("'", "")
-    if current == expected:
-        log_success(f"Verified: {key} = {expected}")
+def ensure_slick_greeter_conf():
+    """Ensure slick-greeter.conf exists."""
+    greeter_conf = "/etc/lightdm/slick-greeter.conf"
+    if not os.path.exists(greeter_conf):
+        sample_conf = os.path.join(CONFIG_DIR, "slick-greeter.conf")
+        if os.path.exists(sample_conf):
+            log_info("Copying slick-greeter.conf template...")
+            run_cmd(f"cp '{sample_conf}' '{greeter_conf}'", as_root=True)
+        else:
+            log_warn("No slick-greeter.conf template found in configs/.")
     else:
-        log_warn(f"Expected {expected}, got {current}")
+        log_info("slick-greeter.conf found.")
 
 
 def apply_slick_greeter_theme(gtk_theme, icon_theme, cursor_theme):
-    """
-    Update /etc/lightdm/slick-greeter.conf using crudini.
-    Ensures login screen matches desktop theme.
-    """
-    log_info("Configuring Slick Greeter theme...")
+    """Update /etc/lightdm/slick-greeter.conf using crudini."""
+    ensure_crudini()
+    ensure_slick_greeter_conf()
 
     greeter_conf = "/etc/lightdm/slick-greeter.conf"
     if not os.path.exists(greeter_conf):
-        log_warn(f"{greeter_conf} not found, skipping greeter config.")
+        log_warn(f"{greeter_conf} still not found, skipping greeter config.")
         return
 
-    try:
-        run_cmd(f"crudini --set {greeter_conf} Greeter theme-name '{gtk_theme}'", as_root=True)
-        run_cmd(f"crudini --set {greeter_conf} Greeter icon-theme-name '{icon_theme}'", as_root=True)
-        run_cmd(f"crudini --set {greeter_conf} Greeter cursor-theme-name '{cursor_theme}'", as_root=True)
-        log_success("Slick Greeter configuration updated successfully.")
-    except Exception as e:
-        log_error(f"Failed to configure Slick Greeter: {e}")
+    run_cmd(f"crudini --set {greeter_conf} Greeter theme-name '{gtk_theme}'", as_root=True)
+    run_cmd(f"crudini --set {greeter_conf} Greeter icon-theme-name '{icon_theme}'", as_root=True)
+    run_cmd(f"crudini --set {greeter_conf} Greeter cursor-theme-name '{cursor_theme}'", as_root=True)
+    log_success("Slick Greeter configuration updated successfully.")
 
 
 # ---------------------------------------------------------------------
-# Curses UI for theme selection
+# dconf configuration method
+# ---------------------------------------------------------------------
+def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
+    """Apply selected themes by merging into existing dconf_base and loading it."""
+    base_file = os.path.join(CONFIG_DIR, "dconf_base")
+    if not os.path.exists(base_file):
+        log_warn(f"{base_file} not found, creating minimal base...")
+        base_content = "[org/cinnamon/desktop/interface]\n"
+    else:
+        with open(base_file, "r", encoding="utf-8") as f:
+            base_content = f.read()
+
+    lines = base_content.splitlines()
+    new_lines = []
+    in_iface = False
+    in_wm = False
+
+    for line in lines:
+        stripped = line.strip()
+        # Detect sections
+        if stripped == "[org/cinnamon/desktop/interface]":
+            in_iface = True
+            in_wm = False
+            new_lines.append(stripped)
+            continue
+        elif stripped == "[org/cinnamon/desktop/wm/preferences]":
+            in_iface = False
+            in_wm = True
+            new_lines.append(stripped)
+            continue
+        elif stripped.startswith("[") and stripped.endswith("]"):
+            in_iface = False
+            in_wm = False
+            new_lines.append(stripped)
+            continue
+
+        # Replace values in interface
+        if in_iface:
+            if stripped.startswith("gtk-theme="):
+                new_lines.append(f"gtk-theme='{gtk_theme}'")
+                continue
+            elif stripped.startswith("icon-theme="):
+                new_lines.append(f"icon-theme='{icon_theme}'")
+                continue
+            elif stripped.startswith("cursor-theme="):
+                new_lines.append(f"cursor-theme='{cursor_theme}'")
+                continue
+
+        # Replace value in wm preferences
+        if in_wm and stripped.startswith("theme="):
+            new_lines.append(f"theme='{gtk_theme}'")
+            continue
+
+        # Preserve other lines
+        new_lines.append(line)
+
+    # Ensure missing keys are added
+    if "[org/cinnamon/desktop/interface]" not in base_content:
+        new_lines.insert(0, "[org/cinnamon/desktop/interface]")
+        new_lines.insert(1, f"gtk-theme='{gtk_theme}'")
+        new_lines.insert(2, f"icon-theme='{icon_theme}'")
+        new_lines.insert(3, f"cursor-theme='{cursor_theme}'")
+
+    if "[org/cinnamon/desktop/wm/preferences]" not in base_content:
+        new_lines.append("[org/cinnamon/desktop/wm/preferences]")
+        new_lines.append(f"theme='{gtk_theme}'")
+
+    dconf_file = "/tmp/minty_theme.dconf"
+    with open(dconf_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(new_lines) + "\n")
+
+    log_info(f"Applying merged dconf snapshot ({dconf_file})...")
+    run_cmd(f"sudo -u {USER_NAME} dconf load / < {dconf_file}")
+    log_success("Theme applied successfully via merged dconf snapshot.")
+
+
+# ---------------------------------------------------------------------
+# Curses UI
 # ---------------------------------------------------------------------
 def select_theme(stdscr, themes, category):
     curses.curs_set(0)
@@ -178,12 +239,12 @@ def select_theme(stdscr, themes, category):
         h, w = stdscr.getmaxyx()
         title = f"Select {category} Theme"
         stdscr.attron(curses.color_pair(2))
-        stdscr.addstr(1, w // 2 - len(title) // 2, title)
+        stdscr.addstr(1, max(0, w // 2 - len(title) // 2), title)
         stdscr.attroff(curses.color_pair(2))
 
         for idx, theme in enumerate(themes):
             line = f"{theme['name']} — {theme['description']}"
-            x = w // 2 - len(line) // 2
+            x = max(2, w // 2 - len(line) // 2)
             y = 3 + idx
             if idx == selected_idx:
                 stdscr.attron(curses.color_pair(1))
@@ -204,26 +265,13 @@ def select_theme(stdscr, themes, category):
 
 
 # ---------------------------------------------------------------------
-# Main curses installer
+# Main
 # ---------------------------------------------------------------------
 def run_curses_installer(stdscr):
     stdscr.clear()
     stdscr.addstr(2, 2, "[MintyForge] Preparing desktop environment...")
     stdscr.refresh()
 
-    # 1️⃣ Load dconf configuration first
-    DC_CONF_FILE = "configs/dconf_base"
-    if os.path.exists(DC_CONF_FILE):
-        log_info(f"Loading base Cinnamon settings from {DC_CONF_FILE}")
-        try:
-            run_cmd(f"dconf load -f / < {DC_CONF_FILE}", as_root=False)
-            log_success("Desktop layout restored from dconf snapshot.")
-        except Exception as e:
-            log_warn(f"Could not import dconf: {e}")
-    else:
-        log_warn(f"No {DC_CONF_FILE} found, skipping base config.")
-
-    # 2️⃣ Select and install themes
     gtk = select_theme(stdscr, themes_data, "GTK")
     icon = select_theme(stdscr, icons_data, "Icon")
     cursor = select_theme(stdscr, cursors_data, "Cursor")
@@ -236,33 +284,14 @@ def run_curses_installer(stdscr):
     install_theme(icon, f"{ICONS_DIR}/{icon['name_to_use']}")
     install_theme(cursor, f"{CURSORS_DIR}/{cursor['name_to_use']}")
 
-    # 3️⃣ Apply and verify theme settings
-    log_info("Applying Cinnamon theme configuration...")
-    apply_gsettings("org.cinnamon.desktop.interface", "gtk-theme", gtk["name_to_use"])
-    apply_gsettings("org.cinnamon.desktop.interface", "icon-theme", icon["name_to_use"])
-    apply_gsettings("org.cinnamon.desktop.interface", "cursor-theme", cursor["name_to_use"])
-    apply_gsettings("org.cinnamon.desktop.wm.preferences", "theme", gtk["name_to_use"])
+    apply_theme_dconf(gtk["name_to_use"], icon["name_to_use"], cursor["name_to_use"])
+    apply_slick_greeter_theme(gtk["name_to_use"], icon["name_to_use"], cursor["name_to_use"])
 
-    verify_gsettings("org.cinnamon.desktop.interface", "gtk-theme", gtk["name_to_use"])
-    verify_gsettings("org.cinnamon.desktop.interface", "icon-theme", icon["name_to_use"])
-    verify_gsettings("org.cinnamon.desktop.interface", "cursor-theme", cursor["name_to_use"])
-    verify_gsettings("org.cinnamon.desktop.wm.preferences", "theme", gtk["name_to_use"])
-
-    # 4️⃣ Update Slick Greeter configuration
-    apply_slick_greeter_theme(
-        gtk["name_to_use"], 
-        icon["name_to_use"], 
-        cursor["name_to_use"]
-    )
-
-    stdscr.addstr(8, 2, "🎉 Theme installation and configuration completed successfully!")
-    stdscr.addstr(10, 2, "Press any key to exit...")
+    stdscr.addstr(10, 2, "🎉 Theme installation and configuration completed successfully!")
+    stdscr.addstr(12, 2, "Press any key to exit...")
     stdscr.refresh()
     stdscr.getch()
 
 
-# ---------------------------------------------------------------------
-# Entrypoint
-# ---------------------------------------------------------------------
 if __name__ == "__main__":
     curses.wrapper(run_curses_installer)

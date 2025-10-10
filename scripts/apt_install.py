@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge - Interactive APT Installer
---------------------------------------
-Provides a curses-based menu to install APT packages individually or all at once.
-
-Usage:
-    python3 apt_install.py
+MintyForge - Interactive APT Installer (safe curses version)
+-------------------------------------------------------------
+Provides a curses-based menu to install APT packages individually or all at once,
+with robust handling for terminal height and width.
 """
 
 import os
@@ -79,7 +77,7 @@ def install_all_packages(packages: list[dict]):
 
     success("✅ All packages processed.")
 
-# --- Curses menu ---
+# --- Safe curses menu ---
 
 def curses_menu(stdscr, packages: list[dict]):
     """Display an interactive curses menu for package installation."""
@@ -93,23 +91,32 @@ def curses_menu(stdscr, packages: list[dict]):
 
     while True:
         stdscr.clear()
+        height, width = stdscr.getmaxyx()
+        max_visible = height - 6  # padding top/bottom
+
+        # gestion du "scroll"
+        start_index = max(0, min(current_row - max_visible + 1, len(menu_items) - max_visible))
+        visible_items = menu_items[start_index:start_index + max_visible]
+
         stdscr.attron(curses.color_pair(2))
         stdscr.addstr(0, 0, "MintyForge - APT Installer")
         stdscr.attroff(curses.color_pair(2))
         stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to install | q to quit")
-        stdscr.addstr(2, 0, "─" * 80)
+        stdscr.addstr(2, 0, "─" * (width - 1))
 
-        for idx, item in enumerate(menu_items):
+        for idx, item in enumerate(visible_items):
             name = item.get("name", "Unknown")
             desc = item.get("description", "")
             label = f"👉 {desc}" if name == "__ALL__" else f"{name} - {desc}"
+            label = label[:width - 4]  # prevent horizontal overflow
 
-            if idx == current_row:
+            row_index = idx + 4
+            if start_index + idx == current_row:
                 stdscr.attron(curses.color_pair(1))
-                stdscr.addstr(idx + 4, 2, label)
+                stdscr.addstr(row_index, 2, label)
                 stdscr.attroff(curses.color_pair(1))
             else:
-                stdscr.addstr(idx + 4, 2, label)
+                stdscr.addstr(row_index, 2, label)
 
         key = stdscr.getch()
 
@@ -119,7 +126,7 @@ def curses_menu(stdscr, packages: list[dict]):
             current_row += 1
         elif key in (10, 13):  # Enter
             selected = menu_items[current_row]
-            curses.endwin()  # quit curses safely before running shell cmds
+            curses.endwin()
             os.system("clear")
 
             print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
@@ -130,8 +137,8 @@ def curses_menu(stdscr, packages: list[dict]):
                 install_single_package(selected)
 
             input("\nPress ENTER to return to the menu...")
-            curses.wrapper(lambda s: curses_menu(s, packages))  # restart menu safely
-            return  # prevent double-loop
+            curses.wrapper(lambda s: curses_menu(s, packages))
+            return
         elif key in [ord("q"), ord("Q")]:
             break
 
