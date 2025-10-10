@@ -5,7 +5,7 @@ MintyForge – Theme Installer (Curses Edition)
 ----------------------------------------------
 Interactive desktop theming utility for Linux Mint Cinnamon.
 Loads dconf base layout first, installs themes (GTK, icons, cursors),
-and applies them system-wide.
+and applies them both for the user and system (Slick Greeter).
 """
 
 import os
@@ -67,9 +67,9 @@ def load_json(file_path):
         log_error(f"Failed to load {file_path}: {e}")
         exit(1)
 
-themes_data = load_json(os.path.join(CONFIG_DIR, "theme.json"))
-icons_data = load_json(os.path.join(CONFIG_DIR, "icons.json"))
-cursors_data = load_json(os.path.join(CONFIG_DIR, "cursors.json"))
+themes_data = load_json(os.path.join(CONFIG_DIR, "themes_gtk.json"))
+icons_data = load_json(os.path.join(CONFIG_DIR, "themes_icons.json"))
+cursors_data = load_json(os.path.join(CONFIG_DIR, "themes_cursors.json"))
 
 
 # ---------------------------------------------------------------------
@@ -140,6 +140,27 @@ def verify_gsettings(schema, key, expected):
         log_success(f"Verified: {key} = {expected}")
     else:
         log_warn(f"Expected {expected}, got {current}")
+
+
+def apply_slick_greeter_theme(gtk_theme, icon_theme, cursor_theme):
+    """
+    Update /etc/lightdm/slick-greeter.conf using crudini.
+    Ensures login screen matches desktop theme.
+    """
+    log_info("Configuring Slick Greeter theme...")
+
+    greeter_conf = "/etc/lightdm/slick-greeter.conf"
+    if not os.path.exists(greeter_conf):
+        log_warn(f"{greeter_conf} not found, skipping greeter config.")
+        return
+
+    try:
+        run_cmd(f"crudini --set {greeter_conf} Greeter theme-name '{gtk_theme}'", as_root=True)
+        run_cmd(f"crudini --set {greeter_conf} Greeter icon-theme-name '{icon_theme}'", as_root=True)
+        run_cmd(f"crudini --set {greeter_conf} Greeter cursor-theme-name '{cursor_theme}'", as_root=True)
+        log_success("Slick Greeter configuration updated successfully.")
+    except Exception as e:
+        log_error(f"Failed to configure Slick Greeter: {e}")
 
 
 # ---------------------------------------------------------------------
@@ -226,6 +247,13 @@ def run_curses_installer(stdscr):
     verify_gsettings("org.cinnamon.desktop.interface", "icon-theme", icon["name_to_use"])
     verify_gsettings("org.cinnamon.desktop.interface", "cursor-theme", cursor["name_to_use"])
     verify_gsettings("org.cinnamon.desktop.wm.preferences", "theme", gtk["name_to_use"])
+
+    # 4️⃣ Update Slick Greeter configuration
+    apply_slick_greeter_theme(
+        gtk["name_to_use"], 
+        icon["name_to_use"], 
+        cursor["name_to_use"]
+    )
 
     stdscr.addstr(8, 2, "🎉 Theme installation and configuration completed successfully!")
     stdscr.addstr(10, 2, "Press any key to exit...")

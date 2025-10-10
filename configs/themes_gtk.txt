@@ -1,2 +1,0 @@
-Qogir-Dark|https://github.com/vinceliuice/Qogir-theme.git|bash install.sh -d ~/.themes -c dark|bash install.sh -d /usr/share/themes -c dark
-WhiteSur|https://github.com/vinceliuice/WhiteSur-gtk-theme.git§bash install.sh -d ~/.themes -c dark|bash install.sh -d /usr/share/themes -c dark

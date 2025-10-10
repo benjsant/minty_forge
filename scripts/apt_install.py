@@ -17,7 +17,6 @@ from pathlib import Path
 
 # --- Configuration paths ---
 CONFIG_FILE = Path("configs/install.json")
-APT_TXT = Path("configs/apt.txt")
 
 # --- Colorized terminal output ---
 GREEN = "\033[1;32m"
@@ -26,22 +25,19 @@ RED = "\033[1;31m"
 BLUE = "\033[1;34m"
 RESET = "\033[0m"
 
-def info(msg: str):
-    print(f"{BLUE}[INFO]{RESET} {msg}")
-
-def success(msg: str):
-    print(f"{GREEN}[OK]{RESET} {msg}")
-
-def warn(msg: str):
-    print(f"{YELLOW}[WARN]{RESET} {msg}")
-
-def error(msg: str):
-    print(f"{RED}[ERROR]{RESET} {msg}")
+def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
+def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
+def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
+def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
 
 def run_cmd(cmd: str) -> bool:
     """Run a shell command and return True if successful."""
-    result = subprocess.run(cmd, shell=True)
-    return result.returncode == 0
+    try:
+        result = subprocess.run(cmd, shell=True)
+        return result.returncode == 0
+    except KeyboardInterrupt:
+        warn("Installation interrupted by user.")
+        return False
 
 # --- Core installation logic ---
 
@@ -81,34 +77,37 @@ def install_all_packages(packages: list[dict]):
         else:
             warn(f"Failed to install {name}.")
 
-    success("✅ All packages installed successfully.")
+    success("✅ All packages processed.")
 
 # --- Curses menu ---
 
 def curses_menu(stdscr, packages: list[dict]):
     """Display an interactive curses menu for package installation."""
     curses.curs_set(0)
-    stdscr.nodelay(False)
-    current_row = 0
+    curses.start_color()
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
-    # Add "Install All" at the top
+    current_row = 0
     menu_items = [{"name": "__ALL__", "description": "Install ALL packages"}] + packages
 
     while True:
         stdscr.clear()
-        stdscr.addstr(0, 0, "MintyForge - APT Installer", curses.A_BOLD)
-        stdscr.addstr(1, 0, "Navigate with ↑/↓ | ENTER to install | q to quit")
+        stdscr.attron(curses.color_pair(2))
+        stdscr.addstr(0, 0, "MintyForge - APT Installer")
+        stdscr.attroff(curses.color_pair(2))
+        stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to install | q to quit")
         stdscr.addstr(2, 0, "─" * 80)
 
         for idx, item in enumerate(menu_items):
-            name = item["name"]
-            desc = item["description"]
+            name = item.get("name", "Unknown")
+            desc = item.get("description", "")
             label = f"👉 {desc}" if name == "__ALL__" else f"{name} - {desc}"
 
             if idx == current_row:
-                stdscr.attron(curses.A_REVERSE)
+                stdscr.attron(curses.color_pair(1))
                 stdscr.addstr(idx + 4, 2, label)
-                stdscr.attroff(curses.A_REVERSE)
+                stdscr.attroff(curses.color_pair(1))
             else:
                 stdscr.addstr(idx + 4, 2, label)
 
@@ -118,20 +117,21 @@ def curses_menu(stdscr, packages: list[dict]):
             current_row -= 1
         elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
             current_row += 1
-        elif key == ord("\n"):
-            stdscr.clear()
+        elif key in (10, 13):  # Enter
             selected = menu_items[current_row]
-            stdscr.addstr(0, 0, f"Selected: {selected['description']}\n", curses.A_BOLD)
-            stdscr.refresh()
+            curses.endwin()  # quit curses safely before running shell cmds
+            os.system("clear")
 
-            curses.endwin()  # leave curses mode for subprocess
+            print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
+
             if selected["name"] == "__ALL__":
                 install_all_packages(packages)
             else:
                 install_single_package(selected)
-            input("\nPress ENTER to return to menu...")
-            curses.wrapper(lambda s: curses_menu(s, packages))
-            break
+
+            input("\nPress ENTER to return to the menu...")
+            curses.wrapper(lambda s: curses_menu(s, packages))  # restart menu safely
+            return  # prevent double-loop
         elif key in [ord("q"), ord("Q")]:
             break
 
@@ -144,8 +144,12 @@ def main():
         error(f"{CONFIG_FILE} not found.")
         return
 
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        error(f"Invalid JSON in {CONFIG_FILE}: {e}")
+        return
 
     packages = data.get("packages", [])
     if not packages:

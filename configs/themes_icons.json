@@ -4,8 +4,8 @@
       "name": "Tela-icons",
       "name_to_use": "Tela",
       "url": "https://github.com/vinceliuice/Tela-icon-theme.git",
-      "cmd_user": "bash install.sh -a -d ~/.icons",
-      "cmd_root": "bash install.sh -d /usr/share/icons -a",
+      "cmd_user": "bash install.sh -d ~/.icons",
+      "cmd_root": "bash install.sh -d /usr/share/icons",
       "description": "Tela icon theme"
     },
     {

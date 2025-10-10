@@ -1,5 +1,0 @@
-
-Tela-icons|https://github.com/vinceliuice/Tela-icon-theme.git|bash install.sh -a -d ~/.icons|bash install.sh -d /usr/share/icons -a
-Papirus|https://github.com/PapirusDevelopmentTeam/papirus-icon-theme.git|cp -r Papirus ~/.icons/|cp -r Papirus /usr/share/icons/
-
-

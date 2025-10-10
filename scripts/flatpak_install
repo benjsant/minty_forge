@@ -1,5 +1,0 @@
-#!/bin/bash
-echo "[MintyForge] Installing Flatpaks..."
-while read line; do
-  flatpak install -y $line
-done < configs/flatpak.txt

@@ -13,7 +13,7 @@ import curses
 import subprocess
 from pathlib import Path
 
-CONFIG_FILE = Path("configs/qt.json")
+CONFIG_FILE = Path("configs/kvantum.json")
 THEMES_DIR = Path.home() / ".themes_kvantum"
 
 # ---------------------------------------------------------------------
@@ -40,7 +40,7 @@ def run_cmd(cmd: str) -> bool:
 def ensure_qt_tools():
     """Ensure Qt theming tools are installed."""
     info("Checking required Qt tools...")
-    pkgs = ["qt5ct", "qt6ct", "qt5-style-kvantum", "kvantum-manager"]
+    pkgs = ["qt5ct", "qt6ct", "qt5-style-kvantum", "kvantum-manager", "git", "crudini"]
     run_cmd("sudo apt update -y")
     run_cmd("sudo apt install -y " + " ".join(pkgs))
     success("Qt theming tools installed.")
@@ -97,7 +97,7 @@ def download_kvantum_theme(theme: dict):
         return
 
     info(f"Downloading Kvantum theme {theme_name} from {repo}...")
-    if run_cmd(f"git clone {repo} '{dest}'"):
+    if run_cmd(f"git clone --depth=1 {repo} '{dest}'"):
         success(f"{theme_name} downloaded to {dest}.")
     else:
         error(f"Failed to download {theme_name}.")
@@ -112,8 +112,10 @@ def apply_theme(theme: dict):
     info(f"Applying Qt theme {theme_name}...")
     write_qt_conf(style="kvantum")
 
-    # Apply user command if needed later (future-proof)
-    success(f"{theme_name} applied successfully.")
+    kvantum_conf = Path.home() / ".config/Kvantum/kvantum.kvconfig"
+    kvantum_conf.parent.mkdir(parents=True, exist_ok=True)
+    kvantum_conf.write_text(f"[General]\ntheme={theme_name}\n", encoding="utf-8")
+    success(f"Kvantum theme set to {theme_name}.")
 
 # ---------------------------------------------------------------------
 # curses menu
@@ -165,13 +167,13 @@ def curses_menu(stdscr, themes: list[dict]):
                     if "download" in t:
                         download_kvantum_theme(t)
             else:
-                # Download if needed, then apply
                 if "download" in selected:
                     download_kvantum_theme(selected)
                 apply_theme(selected)
 
             input("\nPress ENTER to return to menu...")
-            return
+            curses.wrapper(lambda s: curses_menu(s, themes))
+            break
         elif key in [ord("q"), ord("Q")]:
             break
 
@@ -186,7 +188,8 @@ def main():
         return
 
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        themes = json.load(f)
+        data = json.load(f)
+        themes = data.get("themes", []) if isinstance(data, dict) else data
 
     if not themes:
         warn("No Qt themes found in config.")
