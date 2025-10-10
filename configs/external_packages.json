@@ -1,0 +1,14 @@
+{
+  "packages": [
+    {
+      "name": "distrobox",
+      "description": "Distrobox (install via official script)",
+      "cmd": "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | bash"
+    },
+    {
+      "name": "virtualbox",
+      "description": "VirtualBox latest from Oracle",
+      "cmd": "sudo sh -c 'wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --yes --output /usr/share/keyrings/oracle-virtualbox-2016.gpg --dearmor' && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib\" | sudo tee /etc/apt/sources.list.d/virtualbox.list && sudo apt update && sudo apt install -y virtualbox-7.1 && sudo usermod -aG vboxusers $USER"
+    }
+  ]
+}

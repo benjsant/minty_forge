@@ -175,6 +175,7 @@ def run_script(script_name: str):
 # ---------------------------------------------------------------------
 MENU_OPTIONS = [
     "Install APT packages",
+    "Install External packages"
     "Remove unwanted APT packages",
     "Install Flatpaks",
     "Install User Themes (GTK, Icons, Cursors)",
@@ -233,12 +234,13 @@ def curses_menu(stdscr):
                 # map menu index -> script base name
                 mapping = {
                     0: "apt_install",
-                    1: "apt_remove",
-                    2: "flatpak_install",
-                    3: "themes_install",
-                    4: "drivers",
-                    5: "qt_install",
-                    6: "distroscript",
+                    1: "external_install",
+                    2: "apt_remove",
+                    3: "flatpak_install",
+                    4: "themes_install",
+                    5: "drivers",
+                    6: "qt_install",
+                    7: "distroscript",
                 }
                 script_name = mapping.get(current_row)
                 if script_name:
