@@ -25,6 +25,8 @@
     { "name": "sassc", "description": "SASS compiler" },
     { "name": "ttf-mscorefonts-installer", "description": "Microsoft TrueType core fonts" },
     { "name": "fonts-firacode", "description": "Fira Code programming font" },
-    { "name": "fonts-dejavu", "description": "DejaVu font family" }
+    { "name": "fonts-dejavu", "description": "DejaVu font family" },
+    { "name": "podman", "description": "Container engine, like a Docker bis" },
+    { "name": "podman-compose", "description": "Podman container composer" }
   ]
 }

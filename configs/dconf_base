@@ -76,9 +76,9 @@ night-light-schedule-to=23.75
 night-light-temperature=uint32 2700
 
 [org/cinnamon/settings-daemon/plugins/power]
-sleep-display-ac=0
-sleep-inactive-ac-timeout=0
-sleep-inactive-battery-timeout=0
+sleep-display-ac=900
+sleep-inactive-ac-timeout=2700
+sleep-inactive-battery-timeout=2700
 
 [org/cinnamon/theme]
 name='Mint-Y-Dark'
