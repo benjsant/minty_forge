@@ -1,0 +1,14 @@
+{
+  "packages": [
+    {
+      "name": "VirtualBox 7.1",
+      "description": "Official Oracle VirtualBox installation (for Ubuntu/Mint)",
+      "cmd": "sudo bash -c 'wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg && . /etc/os-release && CODENAME=${UBUNTU_CODENAME:-$VERSION_CODENAME} && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] http://download.virtualbox.org/virtualbox/debian ${CODENAME} contrib\" > /etc/apt/sources.list.d/virtualbox.list && apt update && apt install -y virtualbox-7.1 && usermod -aG vboxusers $SUDO_USER'"
+    },
+    {
+      "name": "Distrobox",
+      "description": "Install the latest Distrobox from GitHub",
+      "cmd": "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh"
+    }
+  ]
+}

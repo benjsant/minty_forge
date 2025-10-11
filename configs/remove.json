@@ -1,0 +1,9 @@
+{
+  "packages": [
+    { "name": "mintwelcome", "description": "Linux Mint welcome screen" },
+    { "name": "mintchat", "description": "Old Mint chat application" },
+    { "name": "transmission-*", "description": "Transmission torrent client" },
+    { "name": "seahorse", "description": "Gnome keyring manager" },
+    { "name": "gnome-screenshot", "description": "Default GNOME screenshot tool" }
+  ]
+}

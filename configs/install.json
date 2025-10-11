@@ -1,0 +1,33 @@
+{
+  "packages": [
+    { "name": "build-essential", "description": "Essential compilation tools for building software" },
+    { "name": "meld", "description": "Visual diff and merge tool" },
+    { "name": "flameshot", "description": "Powerful screenshot utility" },
+    { "name": "pdfarranger", "description": "Simple tool to merge or split PDF files" },
+    { "name": "rpi-imager", "description": "Raspberry Pi imaging utility" },
+    { "name": "mpv", "description": "Lightweight media player" },
+    { "name": "rhythmbox", "description": "Music player for GNOME" },
+    { "name": "pavucontrol", "description": "PulseAudio volume control" },
+    { "name": "gparted", "description": "Disk partition editor" },
+    { "name": "scrcpy", "description": "Display and control Android devices" },
+    { "name": "git", "description": "Version control system" },
+    { "name": "ncdu", "description": "Disk usage analyzer with ncurses interface" },
+    { "name": "numlockx", "description": "Control numlock on X startup" },
+    { "name": "gtk2-engines-murrine", "description": "GTK2 engine for theming" },
+    { "name": "gtk2-engines-pixbuf", "description": "GTK2 engine with pixbuf rendering" },
+    { "name": "lshw", "description": "Hardware lister utility" },
+    { "name": "clamtk", "description": "GUI for ClamAV antivirus" },
+    { "name": "ubuntu-restricted-extras", "description": "Multimedia codecs and fonts" },
+    { "name": "curl", "description": "Command line data transfer tool" },
+    { "name": "wget", "description": "Network downloader" },
+    { "name": "plymouth-themes", "description": "Themes for boot splash screen" },
+    { "name": "weston", "description": "Reference Wayland compositor" },
+    { "name": "sassc", "description": "SASS compiler" },
+    { "name": "ttf-mscorefonts-installer", "description": "Microsoft TrueType core fonts" },
+    { "name": "fonts-firacode", "description": "Fira Code programming font" },
+    { "name": "fonts-dejavu", "description": "DejaVu font family" },
+    { "name": "crudini", "description": "tool for some ini file " },
+    { "name": "podman", "description": "Container engine, like a Docker bis" },
+    { "name": "podman-compose", "description": "Podman container composer" }
+  ]
+}
