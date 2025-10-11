@@ -1,5 +1,6 @@
 # 🛠️ MintyForge
 
+![minty_forge_icons](data/background.png)
 **MintyForge** est un utilitaire d'automatisation pour Linux Mint (Cinnamon) — un petit "forge" personnel qui propose un menu interactif (curses) pour :
 
 - installer une liste de paquets APT (ou tous d'un coup),
