@@ -1,115 +1,169 @@
-# Minty_Forge
+# 🛠️ MintyForge
 
-Minty_Forge est un utilitaire de post-installation et de configuration pour **Linux Mint Cinnamon 22**.  
-Il automatise la mise à jour du système, l’installation de paquets et de Flatpaks, la configuration des thèmes (GTK, icônes, curseurs), ainsi que quelques réglages système (drivers, greeter…).
+**MintyForge** est un utilitaire d'automatisation pour Linux Mint (Cinnamon) — un petit "forge" personnel qui propose un menu interactif (curses) pour :
 
----
+- installer une liste de paquets APT (ou tous d'un coup),
+- supprimer des paquets indésirables,
+- installer des Flatpaks,
+- installer et configurer thèmes utilisateur (GTK / icônes / curseurs) via JSON,
+- configurer Qt (kvantum / qt5ct / qt6ct),
+- lancer `mintdrivers`,
+- cloner/exécuter **Distroscript**,
+- installer paquets externes (VirtualBox, Distrobox, Podman, etc.) via `external_packages.json`.
 
-## 🚀 Fonctionnalités
-
-- Mise à jour du système (`apt update && apt upgrade`)
-- Installation des paquets listés dans `configs/apt.txt`
-- Suppression des paquets listés dans `configs/remove.txt`
-- Installation des Flatpaks depuis `configs/flatpak.txt`
-- Installation et configuration des thèmes :
-  - GTK
-  - Icônes
-  - Curseurs
-  - Thèmes GRUB2
-- Configuration du **LightDM Slick Greeter** (`configs/slick-greeter_custom.conf`)
-- Gestion des thèmes **Qt5/Qt6** via `qt5ct` et `kvantum`
-- Lancement du projet **Distroscript** en option
+Le projet vise l'automatisation reproductible pour configurer rapidement une machine Mint.
 
 ---
 
-## 📂 Structure du projet
+## Sommaire
 
-```bash
-mintyforge/
-├── mintyforge.sh # Script principal
-├── scripts/ # Scripts secondaires
-│ ├── apt_install.sh
-│ ├── flatpak_install.sh
-│ ├── remove_packages.sh
-│ ├── themes_user.sh
-│ ├── themes_system.sh
-│ └── distroscript_launcher.sh
-├── configs/ # Fichiers de configuration
-│ ├── apt.txt
-│ ├── remove.txt
-│ ├── flatpak.txt
-│ ├── qt_themes.txt
-│ └── slick-greeter_custom.conf
-└── README.md
-```
+- [Prérequis](#prérequis)  
+- [Arborescence du projet](#arborescence-du-projet)  
+- [Installation & exécution](#installation--exécution)  
+- [Fichiers de configuration (JSON / templates)](#fichiers-de-configuration-json--templates)  
+- [Comportement des scripts principaux](#comportement-des-scripts-principaux)  
+- [Détails techniques importants](#détails-techniques-importants)  
+- [Dépannage & logs](#dépannage--logs)  
+- [Sécurité & bonnes pratiques](#sécurité--bonnes-pratiques)  
+- [Contribution](#contribution)  
+- [Licence](#licence)
+
 ---
 
-## ⚙️ Installation
+## Prérequis
 
-Cloner le projet :
+- Système : **Linux Mint (Cinnamon)** ou distrib basée sur Ubuntu (tests ciblés Mint/Ubuntu).
+- Python 3.10+ (ou 3.8+ fonctionne).
+- `git`, `curl`, `gpg`, `bash`, `sudo`.
+- Pour certaines actions : `crudini`, `dconf`, `gsettings` (installés par défaut sur Mint).
+- Accès `sudo` pour les actions système (installation APT, copy dans `/usr/share`, modification de `/etc`).
+
+---
+
+## Arborescence du projet (exemple)
+
+```
+minty_forge/
+├── README.md
+├── minty_forge.py                # script principal (menu curses)
+├── scripts/
+│   ├── apt_install.py
+│   ├── apt_remove.py
+│   ├── flatpak_install.py
+│   ├── themes_install.py
+│   ├── qt_install.py
+│   ├── drivers (shell)
+│   ├── distroscript_install.py
+│   └── external_install.py
+├── configs/
+│   ├── install.json              # liste APT à installer
+│   ├── remove.json               # liste APT à supprimer
+│   ├── flatpak.json              # liste Flatpaks
+│   ├── themes_gtk.json
+│   ├── themes_icons.json
+│   ├── themes_cursors.json
+│   ├── dconf_base                # snapshot dconf de base (template)
+│   └── slick-greeter.conf        # template facultatif pour lightdm greeter
+├── themes/                       # clonage local des themes GTK
+├── icons/                        # clonage local des icon themes
+├── cursors/                      # clonage local des cursor themes
+└── logs/
+    └── mintyforge.log            # logs d'exécution
+```
+
+---
+
+## Installation & exécution
+
+1. **Cloner le repo**
 
 ```bash
-git clone https://github.com/benjsant/minty_forge.git
-cd mintyforge
+git clone https://github.com/<ton-compte>/minty_forge.git
+cd minty_forge
 ```
-Donner les droits d’exécution aux scripts :
 
-`chmod +x minty_forge scripts/*.sh`
-
-## 🖥️ Utilisation
-
-Lancer MintyForge :
+2. **Lancer le menu principal**
 
 ```bash
-./minty_forge
+python3 minty_forge.py
 ```
 
-Un menu interactif vous propose :
+- Navigue avec `↑` / `↓`, `Entrée` pour lancer une action, `q` pour quitter.
+- Chaque option exécute un script de `scripts/` (Python ou shell). Le menu sort proprement de curses, exécute le script (affiche la sortie) puis réinitialise le menu.
 
-1.  **Installation système** (paquets APT + Flatpak + suppression)
-    
-2.  **Installation des thèmes** (GTK, icônes, curseur)
-    
-3.  **Utilisation de Distroscript**
-    
-4.  **Quitter**
-    
+---
 
-* * *
+## Fichiers de configuration (exemples & format)
 
+Tous les fichiers JSON sont stockés dans `configs/`. Les scripts les lisent pour déterminer les actions.
 
-## 📦 Personnalisation
+### `configs/install.json` (APT install)
 
-- Modifier les paquets APT dans `configs/apt.txt`
-    
-- Modifier les Flatpaks dans `configs/flatpak.txt`
-    
-- Modifier les suppressions dans `configs/remove.txt`
-    
-- Modifier la configuration du greeter dans `configs/slick-greeter_custom.conf`
-    
-- Modifier les thèmes Qt disponibles dans `configs/qt_themes.txt`
-    
+```json
+{
+  "packages": [
+    { "name": "build-essential", "description": "Essential compilation tools" },
+    { "name": "git", "description": "Version control" },
+    { "name": "curl", "description": "Downloader" },
+    { "name": "wget", "description": "Downloader" }
+  ]
+}
+```
 
-* * *
+### `configs/remove.json`
 
-## 📜 Licence
+```json
+{
+  "packages": [
+    { "name": "mintwelcome", "description": "Linux Mint welcome" },
+    { "name": "transmission-*", "description": "Transmission client" }
+  ]
+}
+```
 
-Ce projet est distribué sous la licence **MIT**.  
-Vous êtes libre de l’utiliser, le modifier et le redistribuer comme vous le souhaitez.
+### `configs/flatpak.json`
 
-* * *
+```json
+{
+  "flatpaks": [
+    { "source": "flathub", "app": "com.github.tchx84.Flatseal", "description": "Permission manager" }
+  ]
+}
+```
 
-## 🔗 Remarques sur les licences tierces
+### `configs/themes_gtk.json`
 
-MintyForge utilise mais **n’intègre pas** directement certains projets tiers, par exemple les thèmes et icônes de **Vinceliuice** (GPLv3) :
+```json
+{
+  "themes": [
+    {
+      "name": "Qogir-Dark",
+      "name_to_use": "Qogir-Dark",
+      "url": "https://github.com/vinceliuice/Qogir-theme.git",
+      "cmd_user": "bash install.sh -d ~/.themes -c dark",
+      "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
+      "description": "Qogir dark GTK theme"
+    }
+  ]
+}
+```
 
-- [Qogir Theme](https://github.com/vinceliuice/Qogir-theme)
-- [Tela Icons](https://github.com/vinceliuice/Tela-icon-theme)
-- [Grub2 Themes](https://github.com/vinceliuice/grub2-themes)
+### `configs/external_packages.json`
 
-Ces projets conservent leur propre licence (GPLv3).  
-MintyForge ne fait que les installer via `git clone` et `install.sh`.
+```json
+{
+  "external_packages": [
+    {
+      "name": "VirtualBox 7.1",
+      "description": "Oracle VirtualBox via repo Oracle",
+      "cmd": "sudo bash -c 'wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg && . /etc/os-release && CODENAME=${UBUNTU_CODENAME:-$VERSION_CODENAME} && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] http://download.virtualbox.org/virtualbox/debian ${CODENAME} contrib" > /etc/apt/sources.list.d/virtualbox.list && apt update && apt install -y virtualbox-7.1 && usermod -aG vboxusers $SUDO_USER'"
+    }
+  ]
+}
+```
 
-* * *
+---
 
+## Licence
+
+Ce projet est sous **MIT License**.
