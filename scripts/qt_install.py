@@ -40,7 +40,7 @@ def run_cmd(cmd: str) -> bool:
 def ensure_qt_tools():
     """Ensure Qt theming tools are installed."""
     info("Checking required Qt tools...")
-    pkgs = ["qt5ct", "qt6ct", "qt5-style-kvantum", "kvantum-manager", "git", "crudini"]
+    pkgs = ["qt5ct", "qt6ct", "qt5-style-kvantum", "git", "crudini"]
     run_cmd("sudo apt update -y")
     run_cmd("sudo apt install -y " + " ".join(pkgs))
     success("Qt theming tools installed.")
