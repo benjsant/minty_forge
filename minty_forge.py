@@ -147,7 +147,6 @@ MENU_OPTIONS = [
     "Install Flatpaks",
     "Install User Themes (GTK, Icons, Cursors)",
     "Configure Drivers",
-    "Configure Qt Apps",
     "Run DistroScript",
     "Exit",
 ]
@@ -159,8 +158,7 @@ SCRIPT_MAPPING = {
     3: "flatpak_install",
     4: "themes_install",
     5: "drivers",
-    6: "qt_install",
-    7: "distroscript_install",
+    6: "distroscript_install",
 }
 
 # ---------------------------------------------------------------------

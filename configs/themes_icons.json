@@ -15,6 +15,14 @@
       "cmd_user": "cp -r Papirus ~/.icons/",
       "cmd_root": "cp -r Papirus /usr/share/icons/",
       "description": "Papirus icon theme"
+    },
+    {
+      "name": "WhiteSur",
+      "name_to_use": "WhiteSur",
+      "url": "https://github.com/vinceliuice/WhiteSur-icon-theme.git",
+      "cmd_user": "bash install.sh -d ~/.icons",
+      "cmd_root": "bash install.sh -d /usr/share/icons",
+      "description": "WhiteSur icon theme"
     }
   ]
 }

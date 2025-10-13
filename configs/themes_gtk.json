@@ -15,6 +15,22 @@
       "cmd_user": "bash install.sh -d ~/.themes -c dark",
       "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
       "description": "WhiteSur GTK theme"
+    },
+    {
+      "name": "Mint-Y-Dark-Blue",
+      "name_to_use": "Mint-Y-Dark-Blue",
+      "url": "",
+      "cmd_user": "",
+      "cmd_root": "",
+      "description": "Mint Y Dark Blue GTK theme"
+    },
+    {
+      "name": "Vimix",
+      "name_to_use": "Vimix",
+      "url": "https://github.com/vinceliuice/Vimix-gtk-themes.git",
+      "cmd_user": "bash install.sh -d ~/.themes -c dark",
+      "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
+      "description": "Vimix gtk dark theme"
     }
   ]
 }

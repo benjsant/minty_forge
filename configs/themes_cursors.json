@@ -1,15 +1,15 @@
 {
   "themes": [
     {
-      "name": "oreo-cursor-blue",
-      "name_to_use": "Oreo-Blue",
+      "name": "oreo-cursors-red",
+      "name_to_use": "oreo_spark_red_cursors",
       "url": "https://github.com/milkmadedev/oreo-cursors-compiled.git",
       "cmd_user": "cp -r Oreo-Blue ~/.icons/",
       "cmd_root": "cp -r Oreo-Blue /usr/share/icons/",
       "description": "Oreo blue cursors"
     },
     {
-      "name": "oreo_spark_blue_cursors",
+      "name": "oreo-cursors-blue",
       "name_to_use": "oreo_spark_blue_cursors",
       "url": "https://github.com/milkmadedev/oreo-cursors-compiled.git",
       "cmd_user": "cp -r oreo_spark_blue_cursors ~/.icons/",
@@ -39,14 +39,6 @@
       "cmd_user": "",
       "cmd_root": "",
       "description": "Google Dot Black cursors"
-    },
-    {
-      "name": "Oreo-Blue",
-      "name_to_use": "Oreo-Blue",
-      "url": "https://github.com/vinceliuice/Oreo-cursors.git",
-      "cmd_user": "cp -r Oreo-Blue ~/.icons/",
-      "cmd_root": "cp -r Oreo-Blue /usr/share/icons/",
-      "description": "Oreo blue cursors"
     }
   ]
 }
