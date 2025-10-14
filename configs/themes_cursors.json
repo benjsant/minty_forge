@@ -4,9 +4,9 @@
       "name": "oreo-cursors-red",
       "name_to_use": "oreo_spark_red_cursors",
       "url": "https://github.com/milkmadedev/oreo-cursors-compiled.git",
-      "cmd_user": "cp -r Oreo-Blue ~/.icons/",
-      "cmd_root": "cp -r Oreo-Blue /usr/share/icons/",
-      "description": "Oreo blue cursors"
+      "cmd_user": "cp -r oreo_spark_red_cursors ~/.icons/",
+      "cmd_root": "cp -r oreo_spark_red_cursors /usr/share/icons/",
+      "description": "Oreo spark red cursors"
     },
     {
       "name": "oreo-cursors-blue",
