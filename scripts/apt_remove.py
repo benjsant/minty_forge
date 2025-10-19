@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge - Interactive APT Remover
--------------------------------------
-Provides a curses-based interface to remove unwanted APT packages.
+MintyForge - Interactive APT Remover (stable curses version)
+------------------------------------------------------------
+Curses-based interface to remove unwanted APT packages.
 Includes an option to remove all listed packages at once.
 
 Usage:
@@ -40,56 +40,46 @@ def run_cmd(cmd: str) -> bool:
         warn("Operation cancelled by user.")
         return False
 
-# --- Core removal logic ---
-
 def is_package_installed(name: str) -> bool:
-    """Check if a package (or pattern) is installed."""
-    return subprocess.run(
-        f"dpkg -l | grep -q '^{ 'ii' }' | grep '{name}'",
+    """Check if a package is installed."""
+    result = subprocess.run(
+        f"dpkg -l | grep -E '^ii' | grep -qw {name}",
         shell=True
-    ).returncode == 0
+    )
+    return result.returncode == 0
 
 def remove_single_package(pkg: dict):
-    """Remove a single package by name."""
+    """Remove a single package."""
     name = pkg.get("name")
     desc = pkg.get("description", "")
-
     if not name:
         warn("Empty package name, skipping.")
         return
 
     info(f"Checking {name}...")
     if is_package_installed(name):
-        info(f"Removing {name} - {desc}")
+        info(f"Removing {name} ({desc})...")
         if run_cmd(f"sudo apt purge -y {name}"):
             success(f"{name} removed successfully.")
         else:
             warn(f"Failed to remove {name}.")
     else:
-        warn(f"{name} is not installed, skipping.")
+        warn(f"{name} not installed, skipping.")
 
 def remove_all_packages(packages: list[dict]):
-    """Remove all unwanted packages from the list."""
-    info("Starting removal of all unwanted packages...")
-
+    """Remove all packages from the config."""
+    info("Removing all unwanted packages...")
     for pkg in packages:
         name = pkg.get("name")
-        desc = pkg.get("description", "")
         if not name:
             continue
-
-        info(f"Removing {name} ({desc})...")
         run_cmd(f"sudo apt purge -y {name}")
-
-    info("Running autoremove to clean dependencies...")
     run_cmd("sudo apt autoremove -y")
-
     success("✅ All unwanted packages removed successfully.")
 
-# --- Curses menu ---
+# --- Curses Menu ---
 
 def curses_menu(stdscr, packages: list[dict]):
-    """Display an interactive curses menu for package removal."""
     curses.curs_set(0)
     curses.start_color()
     curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
@@ -119,16 +109,15 @@ def curses_menu(stdscr, packages: list[dict]):
                 stdscr.addstr(idx + 4, 2, label)
 
         key = stdscr.getch()
-
         if key == curses.KEY_UP and current_row > 0:
             current_row -= 1
         elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
             current_row += 1
         elif key in (10, 13):  # Enter
             selected = menu_items[current_row]
+            # Quit curses before executing commands
             curses.endwin()
             os.system("clear")
-
             print(f"\n=== Removing: {selected.get('description', selected.get('name'))} ===\n")
 
             if selected["name"] == "__ALL__":
@@ -136,15 +125,20 @@ def curses_menu(stdscr, packages: list[dict]):
             else:
                 remove_single_package(selected)
 
-            input("\nPress ENTER to return to the menu...")
-            curses.wrapper(lambda s: curses_menu(s, packages))
-            return  # exit to avoid nested loop
+            print("\nPress ENTER to return to the menu...")
+            input()
+            os.system("clear")
+
+            # relancer le menu sans réinitialiser curses.wrapper
+            curses.curs_set(0)
+            stdscr.clear()
+            continue
         elif key in [ord("q"), ord("Q")]:
             break
 
         stdscr.refresh()
 
-# --- Main entrypoint ---
+# --- Main ---
 
 def main():
     if not CONFIG_FILE.exists():
@@ -165,6 +159,7 @@ def main():
 
     info("Launching MintyForge APT Remover...")
     curses.wrapper(lambda s: curses_menu(s, packages))
+    success("MintyForge APT Remover exited cleanly.")
 
 if __name__ == "__main__":
     main()

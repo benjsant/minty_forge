@@ -22,10 +22,12 @@ RED = "\033[1;31m"
 BLUE = "\033[1;34m"
 RESET = "\033[0m"
 
+
 def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
 def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
 def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
 def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
+
 
 def run_cmd(cmd: str) -> bool:
     """Execute shell command, return True if successful."""
@@ -36,7 +38,7 @@ def run_cmd(cmd: str) -> bool:
         error(f"Command failed: {cmd}\n{e}")
         return False
 
-# --- Core logic ---
+
 def install_package(pkg: dict):
     """Run the installation command for an external package."""
     name = pkg.get("name")
@@ -53,7 +55,9 @@ def install_package(pkg: dict):
     else:
         warn(f"Failed to install {name}.")
 
+
 def curses_menu(stdscr, packages: list[dict]):
+    """Display the curses-based selection menu."""
     curses.curs_set(0)
     curses.start_color()
     curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
@@ -79,7 +83,7 @@ def curses_menu(stdscr, packages: list[dict]):
             name = item.get("name", "Unknown")
             desc = item.get("description", "")
             label = f"👉 {desc}" if name == "__ALL__" else f"{name} - {desc}"
-            label = label[:width-4]
+            label = label[:width - 4]
             row_index = idx + 4
             if start_index + idx == current_row:
                 stdscr.attron(curses.color_pair(1))
@@ -88,31 +92,25 @@ def curses_menu(stdscr, packages: list[dict]):
             else:
                 stdscr.addstr(row_index, 2, label)
 
+        stdscr.refresh()
         key = stdscr.getch()
+
         if key == curses.KEY_UP and current_row > 0:
             current_row -= 1
         elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
             current_row += 1
-        elif key in (10, 13):  # Enter
+        elif key in (10, 13):  # ENTER key
             selected = menu_items[current_row]
-            curses.endwin()
-            os.system("clear")
-            print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
-
-            if selected["name"] == "__ALL__":
-                for pkg in packages:
-                    install_package(pkg)
-            else:
-                install_package(selected)
-
-            input("\nPress ENTER to return to the menu...")
-            curses.wrapper(lambda s: curses_menu(s, packages))
-            return
+            stdscr.clear()
+            stdscr.refresh()
+            # On sort du menu pour exécuter l’installation
+            return selected
         elif key in [ord("q"), ord("Q")]:
-            break
-        stdscr.refresh()
+            return None
+
 
 def main():
+    """Main entry point."""
     if not CONFIG_FILE.exists():
         error(f"{CONFIG_FILE} not found.")
         return
@@ -130,7 +128,25 @@ def main():
         return
 
     info("Launching MintyForge External Packages Installer...")
-    curses.wrapper(lambda s: curses_menu(s, packages))
+
+    while True:
+        selected = curses.wrapper(lambda s: curses_menu(s, packages))
+        if not selected:
+            break  # Quit
+        os.system("clear")
+
+        print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
+
+        if selected["name"] == "__ALL__":
+            for pkg in packages:
+                install_package(pkg)
+        else:
+            install_package(selected)
+
+        input("\nPress ENTER to return to the menu...")
+
+    success("Finished executing external_install.")
+
 
 if __name__ == "__main__":
     main()
