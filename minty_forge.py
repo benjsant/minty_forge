@@ -165,10 +165,12 @@ def run_script(script_name: str):
     else:
         log_and_print(f"{script_name} finished.", "success")
 
+    # ✅ Correction ici : remplacer input() par os.system("read -r _")
+    print("\nPress ENTER to return to MintyForge menu...")
     try:
-        input("\nPress ENTER to return to MintyForge menu...")
+        os.system("read -r _")  # évite les erreurs curses/input
     except Exception:
-        pass
+        time.sleep(1)
 
     # Reinitialize curses cleanly
     try:
@@ -180,6 +182,7 @@ def run_script(script_name: str):
         curses.curs_set(0)
     except Exception:
         pass
+
 
 # ---------------------------------------------------------------------
 # Menu configuration

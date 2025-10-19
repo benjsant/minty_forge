@@ -14,6 +14,7 @@ import curses
 import subprocess
 import shutil
 import logging
+import shlex
 from pathlib import Path
 
 # ---------------------------------------------------------------------
@@ -70,20 +71,52 @@ icons_data = load_json(CONFIG_DIR / "themes_icons.json")
 cursors_data = load_json(CONFIG_DIR / "themes_cursors.json")
 
 # ---------------------------------------------------------------------
-# Helper functions
+# Helper: safe command runner
 # ---------------------------------------------------------------------
-def run_cmd(cmd: str, cwd=None, as_root=False):
-    """Execute shell command safely."""
-    full_cmd = ["sudo", "bash", "-c", cmd] if as_root else ["bash", "-c", cmd]
-    try:
-        subprocess.run(full_cmd, cwd=cwd, check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        log_warn(f"Command failed: {cmd}\n{e}")
-        return False
+def run_cmd(cmd: str, cwd=None, as_root=False, timeout=60):
+    """
+    Execute shell command, capture output, return (ok, stdout, stderr).
+    - as_root: uses sudo if not already root.
+    - does NOT block waiting for password.
+    """
+    if as_root:
+        if os.geteuid() == 0:
+            full_cmd = ["bash", "-c", cmd]
+        else:
+            full_cmd = ["sudo", "-n", "bash", "-c", cmd]
+    else:
+        full_cmd = ["bash", "-c", cmd]
 
+    try:
+        proc = subprocess.run(
+            full_cmd,
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=os.environ.copy(),
+        )
+        if proc.stdout.strip():
+            log_info(proc.stdout.strip())
+        if proc.stderr.strip():
+            log_warn(proc.stderr.strip())
+        return True, proc.stdout.strip(), proc.stderr.strip()
+    except subprocess.TimeoutExpired:
+        log_error(f"Command timed out: {cmd}")
+        return False, "", "timeout"
+    except subprocess.CalledProcessError as e:
+        log_warn(f"Command failed: {cmd}\n{e.stderr}")
+        return False, e.stdout, e.stderr
+    except Exception as e:
+        log_error(f"Unexpected error running command: {cmd}\n{e}")
+        return False, "", str(e)
+
+# ---------------------------------------------------------------------
+# Installation helpers
+# ---------------------------------------------------------------------
 def install_theme(theme: dict, target_dir: Path):
-    """Clone and install a theme sequentially."""
+    """Clone and install a theme sequentially (improved logging)."""
     name = theme.get("name", "unknown")
     url = theme.get("url", "")
     cmd_user = theme.get("cmd_user", "")
@@ -94,11 +127,11 @@ def install_theme(theme: dict, target_dir: Path):
     if url:
         if not target_dir.exists():
             log_info(f"Cloning {url} into {target_dir}")
-            subprocess.run(["git", "clone", "--depth=1", url, str(target_dir)], check=False)
+            run_cmd(f"git clone --depth=1 {shlex.quote(url)} {shlex.quote(str(target_dir))}", timeout=120)
         else:
             log_warn(f"{target_dir} already exists. Skipping clone.")
 
-    subprocess.run(["sudo", "chown", "-R", f"{USER_NAME}:{USER_NAME}", str(target_dir)], check=False)
+    run_cmd(f"chown -R {shlex.quote(USER_NAME)}:{shlex.quote(USER_NAME)} {shlex.quote(str(target_dir))}", as_root=True)
 
     if cmd_user:
         run_cmd(cmd_user, cwd=str(target_dir))
@@ -137,8 +170,30 @@ def apply_slick_greeter_theme(gtk_theme, icon_theme, cursor_theme):
     run_cmd(f"crudini --set {greeter_conf} Greeter cursor-theme-name '{cursor_theme}'", as_root=True)
     log_success("Slick Greeter updated.")
 
+# ---------------------------------------------------------------------
+# Theme application (dconf + gsettings)
+# ---------------------------------------------------------------------
+def apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme):
+    """Apply theme values using gsettings (applies immediately in session)."""
+    cmds = [
+        f"gsettings set org.cinnamon.desktop.interface gtk-theme '{gtk_theme}'",
+        f"gsettings set org.cinnamon.desktop.interface icon-theme '{icon_theme}'",
+        f"gsettings set org.cinnamon.desktop.interface cursor-theme '{cursor_theme}'",
+        f"gsettings set org.cinnamon.desktop.wm.preferences theme '{gtk_theme}'",
+        f"gsettings set org.cinnamon.theme name '{gtk_theme}'",
+    ]
+    any_ok = False
+    for c in cmds:
+        ok, _, err = run_cmd(c)
+        if ok:
+            any_ok = True
+        else:
+            log_warn(f"gsettings failed: {c} -> {err}")
+    if any_ok:
+        log_success("Theme applied via gsettings.")
+
 def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
-    """Apply GTK, icon, and cursor themes via dconf and update Cinnamon shell theme."""
+    """Create dconf dump file and load it into current user session (no sudo)."""
     base_file = CONFIG_DIR / "dconf_base"
     if not base_file.exists():
         log_warn(f"{base_file} not found, creating minimal base...")
@@ -154,7 +209,6 @@ def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
     for line in base_content.splitlines():
         stripped = line.strip()
 
-        # Detect section headers
         if stripped == "[org/cinnamon/desktop/interface]":
             in_iface, in_wm, in_shell = True, False, False
             new_lines.append(stripped)
@@ -172,7 +226,6 @@ def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
             new_lines.append(stripped)
             continue
 
-        # Replace values in each relevant section
         if in_iface:
             if stripped.startswith("gtk-theme="):
                 new_lines.append(f"gtk-theme='{gtk_theme}'")
@@ -209,12 +262,16 @@ def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
 
     # Write new dconf data
     dconf_file = "/tmp/minty_theme.dconf"
-    dconf_file_path = Path(dconf_file)
-    dconf_file_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    Path(dconf_file).write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    log_info(f"Wrote dconf dump to {dconf_file}")
 
-    # Load configuration via dconf
-    run_cmd(f"sudo -u {USER_NAME} dconf load / < {dconf_file}")
-    log_success("Theme applied via dconf (including Cinnamon shell).")
+    ok, _, err = run_cmd(f"dconf load / < {shlex.quote(dconf_file)}")
+    if not ok:
+        log_warn(f"dconf load failed: {err}. Applying via gsettings instead.")
+        apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme)
+    else:
+        log_success("Theme applied via dconf (including Cinnamon shell).")
+        apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme)
 
 # ---------------------------------------------------------------------
 # Curses UI
@@ -255,7 +312,7 @@ def select_theme(stdscr, themes, category):
             return themes[selected_idx]
 
 # ---------------------------------------------------------------------
-# Main installer
+# Main
 # ---------------------------------------------------------------------
 def run_curses_installer(stdscr):
     stdscr.clear()

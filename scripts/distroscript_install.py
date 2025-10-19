@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge - Distroscript Installer
------------------------------------
+MintyForge - Distroscript Installer (fixed cwd)
+-----------------------------------------------
 Clones and runs the Distroscript repository safely from Python.
 Ensures Podman and Distrobox are installed before running Distroscript.
-Handles existing folders and executes the installation script.
+Handles existing folders and executes the installation script from the repo root.
 """
 
 import os
@@ -32,10 +32,10 @@ def warn(msg: str):
 def error(msg: str):
     print(f"{RED}[ERROR]{RESET} {msg}")
 
-def run_cmd(cmd: str) -> bool:
-    """Run a shell command, returning True if successful."""
+def run_cmd(cmd: str, cwd: Path | None = None) -> bool:
+    """Run a shell command, optionally from a given working directory."""
     try:
-        result = subprocess.run(cmd, shell=True, check=True)
+        result = subprocess.run(cmd, shell=True, check=True, cwd=str(cwd) if cwd else None)
         return result.returncode == 0
     except subprocess.CalledProcessError as e:
         error(f"Command failed: {cmd}\n{e}")
@@ -43,14 +43,9 @@ def run_cmd(cmd: str) -> bool:
 
 # -------- Podman installation --------
 def ensure_podman():
-    """Check if Podman is installed, install it if missing."""
     if subprocess.run("command -v podman", shell=True, capture_output=True).returncode != 0:
         info("Podman not found. Installing Podman...")
-        cmds = [
-            "sudo apt update",
-            "sudo apt install -y podman"
-        ]
-        for cmd in cmds:
+        for cmd in ["sudo apt update", "sudo apt install -y podman"]:
             if not run_cmd(cmd):
                 error("Failed to install Podman. Please install manually.")
                 return False
@@ -61,7 +56,6 @@ def ensure_podman():
 
 # -------- Distrobox installation --------
 def ensure_distrobox():
-    """Check if Distrobox is installed, install it via official script if missing."""
     if subprocess.run("command -v distrobox", shell=True, capture_output=True).returncode != 0:
         info("Distrobox not found. Installing Distrobox...")
         cmd = "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh"
@@ -83,12 +77,12 @@ def install_distroscript():
         error("Cannot proceed without Distrobox.")
         return
 
-    repo_dir = Path("distroscript")
+    repo_dir = Path("distroscript").resolve()
     repo_url = "https://github.com/benjsant/distroscript.git"
 
     if not repo_dir.exists():
         info("Cloning Distroscript repository...")
-        if run_cmd(f"git clone {repo_url} {repo_dir}"):
+        if run_cmd(f"git clone {repo_url} {repo_dir.parent / repo_dir.name}"):
             success("Repository cloned.")
         else:
             error("Failed to clone repository.")
@@ -96,10 +90,7 @@ def install_distroscript():
     else:
         info("Distroscript already exists, skipping clone.")
 
-    os.chdir(repo_dir)
-    info("Running Distroscript installer...")
-
-    install_sh = Path("install.sh")
+    install_sh = repo_dir / "install.sh"
     if not install_sh.exists():
         error("install.sh not found in Distroscript repository.")
         return
@@ -108,7 +99,8 @@ def install_distroscript():
         info("Making install.sh executable...")
         os.chmod(install_sh, 0o755)
 
-    if run_cmd("./install.sh"):
+    info("Running Distroscript installer from its repository...")
+    if run_cmd("./install.sh", cwd=repo_dir):
         success("Distroscript executed successfully.")
     else:
         error("Distroscript execution failed.")
