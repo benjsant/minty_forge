@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-MintyForge – Main Script (Cinnamon Edition)
+MintyForge – Main Script (Cross-DE Edition)
 -------------------------------------------
-Menu principal robuste basé sur curses.
-Exécute des scripts shell ou Python de manière isolée, puis revient proprement au menu.
+Main interactive curses menu for Linux Mint and compatible DEs.
+Handles APT package installation, theme setup, Flatpak management, and driver configuration.
+Disables sleep/screensaver during setup via systemd-logind (dbus-send),
+then restores normal settings at shutdown.
 """
 
 import curses
@@ -13,13 +16,15 @@ import logging
 import time
 import socket
 from pathlib import Path
+import tempfile
 
 # ---------------------------------------------------------------------
-# Setup logging
+# Logging setup
 # ---------------------------------------------------------------------
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "mintyforge.log")
+INHIBIT_FD_FILE = Path(tempfile.gettempdir()) / "mintyforge_inhibit_fd"
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -27,24 +32,32 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 def log_and_print(msg: str, level: str = "info"):
-    """Logs and prints a message."""
-    color_prefix = {
-        "info": "[INFO] ",
-        "success": "[OK] ",
-        "warn": "[WARN] ",
-        "error": "[ERROR] ",
+    """Log and print a message with color level prefix."""
+    colors = {
+        "info": "\033[1;34m",
+        "success": "\033[1;32m",
+        "warn": "\033[1;33m",
+        "error": "\033[1;31m",
     }
-    prefix = color_prefix.get(level, "")
-    print(f"{prefix}{msg}")
-    level_name = level if level in logging._nameToLevel else "info"
-    getattr(logging, level_name)(msg)
+    prefix = {
+        "info": "[INFO]",
+        "success": "[OK]",
+        "warn": "[WARN]",
+        "error": "[ERROR]",
+    }.get(level, "[INFO]")
 
-# ---------------------------------------------------------------------
-# Utilities
-# ---------------------------------------------------------------------
+    color = colors.get(level, "")
+    reset = "\033[0m"
+    print(f"{color}{prefix}{reset} {msg}")
+    getattr(logging, level if level in logging._nameToLevel else "info")(msg)
+
+
 def check_internet_connection(host="archive.ubuntu.com", port=80, timeout=2):
-    """Check internet availability."""
+    """Check internet connectivity."""
     try:
         socket.create_connection((host, port), timeout=timeout)
         log_and_print("Internet connection detected.", "success")
@@ -53,89 +66,128 @@ def check_internet_connection(host="archive.ubuntu.com", port=80, timeout=2):
         log_and_print("No Internet connection detected. Please connect and retry.", "error")
         return False
 
+
 def disable_suspend_and_screensaver():
-    """Disable suspend and screensaver temporarily."""
-    log_and_print("Disabling suspend and screensaver temporarily...", "info")
-    commands = [
+    """Disable suspend/screensaver temporarily via D-Bus or Cinnamon fallback."""
+    log_and_print("Attempting to inhibit suspend and screensaver...", "info")
+    os.environ["PATH"] += os.pathsep + "/usr/bin"
+
+    inhibit_cmd = [
+        "/usr/bin/dbus-send",
+        "--system",
+        "--dest=org.freedesktop.login1",
+        "--type=method_call",
+        "--print-reply",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager.Inhibit",
+        "string:sleep:idle",
+        "string:MintyForge",
+        "string:System setup in progress",
+        "string:block"
+    ]
+
+    try:
+        subprocess.run(inhibit_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        log_and_print("System sleep and idle inhibited via D-Bus (systemd-logind).", "success")
+        return
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        log_and_print(f"D-Bus inhibition failed: {e}. Falling back to Cinnamon.", "warn")
+
+    # Cinnamon fallback
+    fallback_cmds = [
         ["gsettings", "set", "org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-ac-timeout", "0"],
         ["gsettings", "set", "org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout", "0"],
         ["gsettings", "set", "org.cinnamon.desktop.screensaver", "lock-enabled", "false"],
     ]
-    for cmd in commands:
+    for cmd in fallback_cmds:
         subprocess.run(cmd, check=False)
-    log_and_print("Suspend and screensaver disabled.", "success")
+    log_and_print("Fallback applied: suspend and screensaver disabled via gsettings.", "success")
+
+
+def restore_power_settings():
+    """Restore default Cinnamon power and lock settings."""
+    log_and_print("Restoring Cinnamon power settings...", "info")
+    cmds = [
+        ["gsettings", "set", "org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-ac-timeout", "1200"],
+        ["gsettings", "set", "org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout", "900"],
+        ["gsettings", "set", "org.cinnamon.desktop.screensaver", "lock-enabled", "true"],
+    ]
+    for cmd in cmds:
+        subprocess.run(cmd, check=False)
+    log_and_print("Power and screensaver settings restored.", "success")
+
 
 def update_system():
-    """Update apt packages."""
-    log_and_print("Updating system packages...", "info")
+    """Update system packages (APT)."""
+    log_and_print("Updating APT packages...", "info")
     subprocess.run(["sudo", "apt", "update", "-y"], check=False)
     subprocess.run(["sudo", "apt", "upgrade", "-y"], check=False)
-    log_and_print("System updated.", "success")
+    log_and_print("System packages updated successfully.", "success")
+
+
+def update_flatpaks():
+    """Update installed Flatpaks automatically at startup."""
+    log_and_print("Checking for Flatpak updates...", "info")
+    try:
+        result = subprocess.run(["flatpak", "update", "-y"], check=False, capture_output=True, text=True)
+        if "Nothing to do" in result.stdout:
+            log_and_print("No Flatpak updates available.", "info")
+        else:
+            log_and_print("Flatpaks updated successfully.", "success")
+    except FileNotFoundError:
+        log_and_print("Flatpak not installed — skipping Flatpak updates.", "warn")
+
+
+def pause_message():
+    """Pause before returning to menu."""
+    print("\nPress ENTER to return to MintyForge menu...")
+    try:
+        os.system("read -r _")
+    except Exception:
+        time.sleep(1)
+
 
 # ---------------------------------------------------------------------
-# Script runner
+# Script execution system
 # ---------------------------------------------------------------------
 SCRIPTS_DIR = Path("scripts")
 ROOT = Path(".").resolve()
 
-def find_script_candidates(script_name: str):
-    """Locate the correct path for a script."""
+def find_script(script_name: str):
+    """Locate script path."""
     candidates = [
         SCRIPTS_DIR / f"{script_name}.py",
         SCRIPTS_DIR / script_name,
         ROOT / f"{script_name}.py",
         ROOT / script_name,
     ]
-    for p in candidates:
-        if p.exists():
-            return p
-    return None
+    return next((p for p in candidates if p.exists()), None)
+
 
 def run_script(script_name: str):
-    """Run a given script and return cleanly to curses menu."""
-    path = find_script_candidates(script_name)
+    """Run a script by name, with safety and logs."""
+    path = find_script(script_name)
     if not path:
         log_and_print(f"Script not found: {script_name}", "error")
+        pause_message()
         return
 
-    log_and_print(f"Resolved script: {path}", "info")
-
-    try:
-        curses.endwin()  # Leave curses before running
-    except Exception:
-        pass
+    log_and_print(f"Running {path}...", "info")
+    curses.endwin()
 
     try:
         if path.suffix == ".py":
-            log_and_print(f"Running Python script: {path}", "info")
             subprocess.run(["python3", str(path)], check=False)
         elif os.access(str(path), os.X_OK):
-            log_and_print(f"Running executable: {path}", "info")
             subprocess.run([str(path)], check=False)
         else:
-            log_and_print(f"Running via bash: {path}", "info")
             subprocess.run(["bash", str(path)], check=False)
+        log_and_print(f"Finished executing {script_name}.", "success")
     except Exception as e:
-        log_and_print(f"Error while running {path}: {e}", "error")
-    else:
-        log_and_print(f"{script_name} finished.", "success")
+        log_and_print(f"Error running {path}: {e}", "error")
 
-    # Wait for user confirmation
-    try:
-        input("\nPress ENTER to return to MintyForge menu...")
-    except Exception:
-        pass
+    pause_message()
 
-    # Reinit curses
-    try:
-        stdscr = curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        if curses.has_colors():
-            curses.start_color()
-        curses.curs_set(0)
-    except Exception:
-        pass
 
 # ---------------------------------------------------------------------
 # Menu configuration
@@ -161,11 +213,12 @@ SCRIPT_MAPPING = {
     6: "distroscript_install",
 }
 
+
 # ---------------------------------------------------------------------
-# Curses Menu
+# Curses Menu UI
 # ---------------------------------------------------------------------
 def curses_menu(stdscr):
-    """Display interactive curses menu."""
+    """Display the MintyForge curses main menu."""
     curses.curs_set(0)
     if curses.has_colors():
         curses.start_color()
@@ -200,34 +253,42 @@ def curses_menu(stdscr):
             current_row -= 1
         elif key == curses.KEY_DOWN and current_row < len(MENU_OPTIONS) - 1:
             current_row += 1
-        elif key in [10, 13]:  # Enter
+        elif key in [10, 13]:  # ENTER
             if current_row == len(MENU_OPTIONS) - 1:  # Exit
+                restore_power_settings()
                 log_and_print("Exiting MintyForge. Goodbye!", "success")
-                time.sleep(0.3)
+                time.sleep(0.5)
                 break
             else:
                 script_name = SCRIPT_MAPPING.get(current_row)
                 if script_name:
-                    stdscr.clear()
-                    stdscr.addstr(2, 2, f"Running: {MENU_OPTIONS[current_row]} ...")
-                    stdscr.refresh()
                     run_script(script_name)
                 else:
                     log_and_print("No script mapped to this option.", "warn")
         elif key in [ord("q"), ord("Q")]:
+            restore_power_settings()
             log_and_print("Exiting MintyForge. Goodbye!", "success")
             break
 
+
 # ---------------------------------------------------------------------
-# Main Entry
+# Main Entrypoint
 # ---------------------------------------------------------------------
 def main():
-    """MintyForge entrypoint."""
+    """MintyForge main entrypoint."""
     if not check_internet_connection():
         return
+
     disable_suspend_and_screensaver()
     update_system()
-    curses.wrapper(curses_menu)
+    update_flatpaks()  # ✅ automatic flatpak update
+
+    try:
+        curses.wrapper(curses_menu)
+    finally:
+        restore_power_settings()
+        log_and_print("MintyForge shutdown completed — system settings restored.", "success")
+
 
 if __name__ == "__main__":
     main()

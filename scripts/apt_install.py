@@ -92,23 +92,31 @@ def curses_menu(stdscr, packages: list[dict]):
     while True:
         stdscr.clear()
         height, width = stdscr.getmaxyx()
-        max_visible = height - 6  # padding top/bottom
 
-        # gestion du "scroll"
+        # Safety: handle small terminals gracefully
+        if height < 10 or width < 40:
+            stdscr.addstr(0, 0, "Please enlarge your terminal (min 40x10).")
+            stdscr.refresh()
+            curses.napms(1500)
+            continue
+
+        max_visible = height - 6
         start_index = max(0, min(current_row - max_visible + 1, len(menu_items) - max_visible))
         visible_items = menu_items[start_index:start_index + max_visible]
 
+        # Header
         stdscr.attron(curses.color_pair(2))
-        stdscr.addstr(0, 0, "MintyForge - APT Installer")
+        stdscr.addstr(0, 0, "MintyForge - APT Installer".center(width - 1))
         stdscr.attroff(curses.color_pair(2))
-        stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to install | q to quit")
+        stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to install | q to quit".center(width - 1))
         stdscr.addstr(2, 0, "─" * (width - 1))
 
+        # List display
         for idx, item in enumerate(visible_items):
             name = item.get("name", "Unknown")
             desc = item.get("description", "")
-            label = f"👉 {desc}" if name == "__ALL__" else f"{name} - {desc}"
-            label = label[:width - 4]  # prevent horizontal overflow
+            label = f"[ALL] {desc}" if name == "__ALL__" else f"{name} - {desc}"
+            label = label[:width - 4]
 
             row_index = idx + 4
             if start_index + idx == current_row:
@@ -118,6 +126,7 @@ def curses_menu(stdscr, packages: list[dict]):
             else:
                 stdscr.addstr(row_index, 2, label)
 
+        stdscr.refresh()
         key = stdscr.getch()
 
         if key == curses.KEY_UP and current_row > 0:
@@ -125,24 +134,9 @@ def curses_menu(stdscr, packages: list[dict]):
         elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
             current_row += 1
         elif key in (10, 13):  # Enter
-            selected = menu_items[current_row]
-            curses.endwin()
-            os.system("clear")
-
-            print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
-
-            if selected["name"] == "__ALL__":
-                install_all_packages(packages)
-            else:
-                install_single_package(selected)
-
-            input("\nPress ENTER to return to the menu...")
-            curses.wrapper(lambda s: curses_menu(s, packages))
-            return
+            return menu_items[current_row]
         elif key in [ord("q"), ord("Q")]:
-            break
-
-        stdscr.refresh()
+            return None
 
 # --- Main entrypoint ---
 
@@ -164,7 +158,21 @@ def main():
         return
 
     info("Launching MintyForge APT Installer...")
-    curses.wrapper(lambda s: curses_menu(s, packages))
+
+    while True:
+        selected = curses.wrapper(lambda s: curses_menu(s, packages))
+        if not selected:
+            break  # Quit
+
+        os.system("clear")
+        print(f"\n=== Installing: {selected.get('description', selected.get('name'))} ===\n")
+
+        if selected["name"] == "__ALL__":
+            install_all_packages(packages)
+        else:
+            install_single_package(selected)
+
+        input("\nPress ENTER to return to the menu...")
 
 if __name__ == "__main__":
     main()

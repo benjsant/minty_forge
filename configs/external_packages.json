@@ -9,6 +9,11 @@
       "name": "Distrobox",
       "description": "Install the latest Distrobox from GitHub",
       "cmd": "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh"
+    },
+    {
+      "name": "Visual Studio Code",
+      "description": "Microsoft VSCode (official repository with automatic updates)",
+      "cmd": "sudo bash -c 'wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main\" > /etc/apt/sources.list.d/vscode.list && apt update && apt install -y code'"
     }
   ]
 }
