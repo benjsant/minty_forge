@@ -1,0 +1,77 @@
+# ======================================
+# MintyForge - Python project .gitignore
+# Compatible with Linux Mint / Ubuntu
+# ======================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.py.class
+*.egg
+*.egg-info/
+*.manifest
+*.spec
+
+# --- Virtual environments ---
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Logs & temp files ---
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+*.tar
+*.zip
+*.gz
+*.rar
+*.7z
+
+# --- Editor & IDE specific ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Build & distribution ---
+build/
+dist/
+pip-wheel-metadata/
+*.egg-info/
+__pycache__/
+*.manifest
+*.spec
+
+# --- System files ---
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# --- MintyForge specific ---
+# Configs may be customized by users, so ignore local ones
+configs/*.json
+!configs/default_*.json  # keep default templates
+
+# Generated installer logs or temp files
+logs/
+output/
+cache/
+.tmp/
+
+# --- Misc ---
+*.bak
+*.old
+*.orig
+
+# --- Optional: ignore shell scripts backups if any ---
+*.sh~
