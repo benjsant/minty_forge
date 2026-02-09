@@ -33,11 +33,14 @@ Le projet vise l'automatisation reproductible pour configurer rapidement une mac
 
 ## Prérequis
 
-- Système : **Linux Mint (Cinnamon)** ou distrib basée sur Ubuntu (tests ciblés Mint/Ubuntu).
-- Python 3.10+ (ou 3.8+ fonctionne).
-- `git`, `curl`, `gpg`, `bash`, `sudo`.
-- Pour certaines actions : `crudini`, `dconf`, `gsettings` (installés par défaut sur Mint).
-- Accès `sudo` pour les actions système (installation APT, copy dans `/usr/share`, modification de `/etc`).
+- Système : **Linux Mint 22+ (Cinnamon)** ou distribution basée sur Ubuntu 24.04+
+- Python 3.12+ (fourni par défaut avec Mint 22)
+- `python3-venv` pour le virtual environment
+- `git`, `curl`, `gpg`, `bash`, `sudo`
+- Pour certaines actions : `crudini`, `dconf`, `gsettings` (installés par défaut sur Mint)
+- Accès `sudo` pour les actions système (installation APT, copy dans `/usr/share`, modification de `/etc`)
+
+**Note :** Le script `setup.sh` installe automatiquement `python3-venv` si nécessaire.
 
 ---
 
@@ -76,6 +79,8 @@ minty_forge/
 
 ## Installation & exécution
 
+### 🌐 **Interface Web (Recommandée)**
+
 1. **Cloner le repo**
 
 ```bash
@@ -83,14 +88,40 @@ git clone https://github.com/<ton-compte>/minty_forge.git
 cd minty_forge
 ```
 
-2. **Lancer le menu principal**
+2. **Installer et configurer (une seule fois)**
 
 ```bash
-python3 minty_forge.py
+chmod +x setup.sh start.sh
+./setup.sh
 ```
 
-- Navigue avec `↑` / `↓`, `Entrée` pour lancer une action, `q` pour quitter.
-- Chaque option exécute un script de `scripts/` (Python ou shell). Le menu sort proprement de curses, exécute le script (affiche la sortie) puis réinitialise le menu.
+Le script va :
+- Vérifier Python 3.12+
+- Créer un virtual environment (.venv)
+- Installer Flask et les dépendances
+- Tout configurer automatiquement
+
+3. **Lancer MintyForge**
+
+```bash
+./start.sh
+```
+
+4. **Ouvrir dans votre navigateur**
+
+```
+http://localhost:5000
+```
+
+**Fonctionnalités web :**
+- ✅ Interface moderne et responsive
+- ✅ Gros bouton "TOUT INSTALLER"
+- ✅ Actions individuelles (APT, Flatpak, Thèmes...)
+- ✅ Logs en temps réel
+- ✅ Barres de progression
+- ✅ Accessible depuis le réseau local
+
+Voir [INSTALL_WEB.md](INSTALL_WEB.md) pour plus de détails.
 
 ---
 

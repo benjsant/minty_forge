@@ -6,47 +6,25 @@ MintyForge - Interactive APT Remover (stable curses version)
 Curses-based interface to remove unwanted APT packages.
 Includes an option to remove all listed packages at once.
 
-Usage:
-    python3 apt_remove.py
+Security: Uses secure subprocess calls without shell=True
 """
 
 import os
+import sys
 import json
 import curses
-import subprocess
 from pathlib import Path
+
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    check_package_installed, apt_remove, run_sudo_command,
+    info, success, warn, error,
+    load_package_list
+)
 
 # --- Configuration paths ---
 CONFIG_FILE = Path("configs/remove.json")
-
-# --- Colorized terminal output ---
-GREEN = "\033[1;32m"
-YELLOW = "\033[1;33m"
-RED = "\033[1;31m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-
-def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
-def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
-def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
-def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
-
-def run_cmd(cmd: str) -> bool:
-    """Run a shell command and return True if successful."""
-    try:
-        result = subprocess.run(cmd, shell=True)
-        return result.returncode == 0
-    except KeyboardInterrupt:
-        warn("Operation cancelled by user.")
-        return False
-
-def is_package_installed(name: str) -> bool:
-    """Check if a package is installed."""
-    result = subprocess.run(
-        f"dpkg -l | grep -E '^ii' | grep -qw {name}",
-        shell=True
-    )
-    return result.returncode == 0
 
 def remove_single_package(pkg: dict):
     """Remove a single package."""
@@ -57,9 +35,10 @@ def remove_single_package(pkg: dict):
         return
 
     info(f"Checking {name}...")
-    if is_package_installed(name):
+    if check_package_installed(name):
         info(f"Removing {name} ({desc})...")
-        if run_cmd(f"sudo apt purge -y {name}"):
+        result = apt_remove([name], purge=True)
+        if result.success:
             success(f"{name} removed successfully.")
         else:
             warn(f"Failed to remove {name}.")
@@ -69,12 +48,15 @@ def remove_single_package(pkg: dict):
 def remove_all_packages(packages: list[dict]):
     """Remove all packages from the config."""
     info("Removing all unwanted packages...")
+    
     for pkg in packages:
         name = pkg.get("name")
         if not name:
             continue
-        run_cmd(f"sudo apt purge -y {name}")
-    run_cmd("sudo apt autoremove -y")
+        result = apt_remove([name], purge=True)
+    
+    # Run autoremove
+    run_sudo_command(["apt", "autoremove", "-y"])
     success("✅ All unwanted packages removed successfully.")
 
 # --- Curses Menu ---

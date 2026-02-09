@@ -6,53 +6,24 @@ MintyForge - Interactive Flatpak Installer
 Provides a curses-based interface to install Flatpaks.
 Includes an option to install all Flatpaks at once.
 
-Usage:
-    python3 flatpak_install.py
+Security: Uses secure subprocess calls without shell=True
 """
 
 import os
+import sys
 import json
 import curses
-import subprocess
 from pathlib import Path
 
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    check_flatpak_installed, flatpak_install,
+    info, success, warn, error,
+    load_package_list
+)
+
 CONFIG_FILE = Path("configs/flatpak.json")
-
-# --- Colorized output ---
-GREEN = "\033[1;32m"
-YELLOW = "\033[1;33m"
-RED = "\033[1;31m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-
-def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
-def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
-def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
-def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
-
-
-# --- Utility commands ---
-def run_cmd(cmd: str) -> bool:
-    """Run a shell command and return True if successful."""
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        error(f"Command failed: {cmd}\n{e}")
-        return False
-    except KeyboardInterrupt:
-        warn("Operation cancelled by user.")
-        return False
-
-
-def is_flatpak_installed(app_id: str) -> bool:
-    """Check if a Flatpak app is already installed."""
-    result = subprocess.run(
-        f"flatpak list | grep -F {app_id}",
-        shell=True,
-        stdout=subprocess.DEVNULL
-    )
-    return result.returncode == 0
 
 
 def install_single_flatpak(flatpak: dict):
@@ -65,12 +36,13 @@ def install_single_flatpak(flatpak: dict):
         warn("Empty Flatpak ID, skipping.")
         return
 
-    if is_flatpak_installed(app):
+    if check_flatpak_installed(app):
         warn(f"{app} is already installed, skipping.")
         return
 
     info(f"Installing {app} - {desc} from {source}...")
-    if run_cmd(f"flatpak install -y {source} {app}"):
+    result = flatpak_install(app, remote=source)
+    if result.success:
         success(f"{app} installed successfully.")
     else:
         warn(f"Failed to install {app}.")

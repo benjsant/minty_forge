@@ -5,45 +5,40 @@ MintyForge - Qt Theme Installer (Python version)
 ------------------------------------------------
 Interactive installer and configurator for Qt theming.
 Supports Kvantum theme downloads and configuration via curses.
+
+Security: Uses secure subprocess calls without shell=True
 """
 
 import os
+import sys
 import json
 import curses
-import subprocess
 from pathlib import Path
 
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    apt_update, apt_install, run_command,
+    info, success, warn, error,
+    load_package_list, get_user_home
+)
+
 CONFIG_FILE = Path("configs/kvantum.json")
-THEMES_DIR = Path.home() / ".themes_kvantum"
-
-# ---------------------------------------------------------------------
-# Colorful logging helpers
-# ---------------------------------------------------------------------
-GREEN = "\033[1;32m"
-YELLOW = "\033[1;33m"
-RED = "\033[1;31m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-
-def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
-def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
-def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
-def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
+THEMES_DIR = get_user_home() / ".themes_kvantum"
 
 # ---------------------------------------------------------------------
 # Core helpers
 # ---------------------------------------------------------------------
-def run_cmd(cmd: str) -> bool:
-    """Run a system command and return True if successful."""
-    return subprocess.run(cmd, shell=True).returncode == 0
-
 def ensure_qt_tools():
     """Ensure Qt theming tools are installed."""
     info("Checking required Qt tools...")
     pkgs = ["qt5ct", "qt6ct", "qt5-style-kvantum", "git", "crudini"]
-    run_cmd("sudo apt update -y")
-    run_cmd("sudo apt install -y " + " ".join(pkgs))
-    success("Qt theming tools installed.")
+    apt_update()
+    result = apt_install(pkgs)
+    if result.success:
+        success("Qt theming tools installed.")
+    else:
+        warn("Some Qt tools may not have installed correctly.")
 
 def configure_environment():
     """Add QT environment variables to ~/.profile."""

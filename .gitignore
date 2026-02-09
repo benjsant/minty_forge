@@ -68,6 +68,10 @@ output/
 cache/
 .tmp/
 
+# Flask instance files
+instance/
+.webassets-cache
+
 # --- Misc ---
 *.bak
 *.old

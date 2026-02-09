@@ -5,37 +5,25 @@ MintyForge - Interactive APT Installer (safe curses version)
 -------------------------------------------------------------
 Provides a curses-based menu to install APT packages individually or all at once,
 with robust handling for terminal height and width.
+
+Security: Uses secure subprocess calls without shell=True
 """
 
 import os
-import json
+import sys
 import curses
-import subprocess
 from pathlib import Path
+
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    check_package_installed, apt_install,
+    info, success, warn, error,
+    load_package_list
+)
 
 # --- Configuration paths ---
 CONFIG_FILE = Path("configs/install.json")
-
-# --- Colorized terminal output ---
-GREEN = "\033[1;32m"
-YELLOW = "\033[1;33m"
-RED = "\033[1;31m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-
-def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
-def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
-def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
-def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
-
-def run_cmd(cmd: str) -> bool:
-    """Run a shell command and return True if successful."""
-    try:
-        result = subprocess.run(cmd, shell=True)
-        return result.returncode == 0
-    except KeyboardInterrupt:
-        warn("Installation interrupted by user.")
-        return False
 
 # --- Core installation logic ---
 
@@ -49,12 +37,13 @@ def install_single_package(pkg: dict):
         return
 
     info(f"Checking {name}...")
-    if subprocess.run(f"dpkg -l | grep -q '^ii  {name}'", shell=True).returncode == 0:
+    if check_package_installed(name):
         warn(f"{name} is already installed, skipping.")
         return
 
     info(f"Installing {name} - {desc}")
-    if run_cmd(f"sudo apt install -y {name}"):
+    result = apt_install([name])
+    if result.success:
         success(f"{name} installed successfully.")
     else:
         warn(f"Failed to install {name}.")
@@ -70,7 +59,8 @@ def install_all_packages(packages: list[dict]):
             continue
 
         info(f"Installing {name} ({desc})...")
-        if run_cmd(f"sudo apt install -y {name}"):
+        result = apt_install([name])
+        if result.success:
             success(f"{name} installed successfully.")
         else:
             warn(f"Failed to install {name}.")
@@ -146,13 +136,11 @@ def main():
         return
 
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        error(f"Invalid JSON in {CONFIG_FILE}: {e}")
+        packages = load_package_list(CONFIG_FILE)  # Now with validation!
+    except Exception as e:
+        error(f"Failed to load config: {e}")
         return
 
-    packages = data.get("packages", [])
     if not packages:
         warn("No packages found in config.")
         return

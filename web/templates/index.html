@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛠️ MintyForge - Web Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #2ecc71;
+            --secondary: #3498db;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --success: #27ae60;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        
+        .status-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .status-item {
+            padding: 15px;
+            border-radius: 10px;
+            background: var(--light);
+            text-align: center;
+        }
+        
+        .status-item.ok {
+            background: #d5f4e6;
+            border-left: 4px solid var(--success);
+        }
+        
+        .status-item.error {
+            background: #fadbd8;
+            border-left: 4px solid var(--danger);
+        }
+        
+        .status-item h3 {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        
+        .status-item .value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: var(--dark);
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .big-button {
+            width: 100%;
+            padding: 25px;
+            font-size: 1.5em;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .big-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .big-button:active {
+            transform: translateY(0);
+        }
+        
+        .big-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--success) 100%);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--secondary) 0%, #5dade2 100%);
+            font-size: 1em;
+            padding: 15px;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #ec7063 100%);
+            font-size: 1em;
+            padding: 15px;
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        
+        .logs-container::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .logs-container::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 10px;
+        }
+        
+        .logs-container::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 10px;
+        }
+        
+        .logs-container::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #ecf0f1;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .task-status {
+            text-align: center;
+            padding: 15px;
+            background: var(--light);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .task-status.running {
+            background: #d5f4e6;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .badge-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .badge-danger {
+            background: var(--danger);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛠️ MintyForge</h1>
+            <p>Interface Web d'installation automatisée pour Linux Mint</p>
+        </div>
+        
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div class="status-item" id="status-internet">
+                <h3>Connexion Internet</h3>
+                <div class="value">⏳</div>
+            </div>
+            <div class="status-item" id="status-sudo">
+                <h3>Accès Sudo</h3>
+                <div class="value">⏳</div>
+            </div>
+            <div class="status-item" id="status-python">
+                <h3>Python</h3>
+                <div class="value">⏳</div>
+            </div>
+            <div class="status-item">
+                <h3>Paquets APT</h3>
+                <div class="value" id="count-apt">0</div>
+            </div>
+            <div class="status-item">
+                <h3>Flatpaks</h3>
+                <div class="value" id="count-flatpak">0</div>
+            </div>
+            <div class="status-item">
+                <h3>Thèmes</h3>
+                <div class="value" id="count-themes">0</div>
+            </div>
+        </div>
+        
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Actions Card -->
+            <div class="card">
+                <h2>🚀 Actions</h2>
+                
+                <div class="task-status" id="taskStatus">
+                    Prêt à démarrer
+                </div>
+                
+                <div class="progress-bar" id="progressBar" style="display: none;">
+                    <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                </div>
+                
+                <button class="big-button btn-primary" id="btnInstallAll" onclick="executeAll()">
+                    🎯 TOUT INSTALLER
+                </button>
+                
+                <h3 style="margin: 20px 0 10px 0; color: #7f8c8d;">Ou actions individuelles :</h3>
+                
+                <div class="action-grid">
+                    <button class="big-button btn-secondary" onclick="executeAction('apt_install')">
+                        📦 APT
+                    </button>
+                    <button class="big-button btn-secondary" onclick="executeAction('flatpak_install')">
+                        📱 Flatpak
+                    </button>
+                    <button class="big-button btn-primary" onclick="executeRecommendedThemes()" title="Applique la configuration de thèmes recommandée (GTK, Icônes, Curseur)">
+                        🎨✨ Config Recommandée
+                    </button>
+                    <button class="big-button btn-secondary" onclick="executeAction('themes_install')">
+                        🎨 Thèmes (Avancé)
+                    </button>
+                    <button class="big-button btn-secondary" onclick="executeAction('external_install')">
+                        🌐 Externes
+                    </button>
+                    <button class="big-button btn-danger" onclick="executeAction('apt_remove')">
+                        🗑️ Nettoyage
+                    </button>
+                    <button class="big-button btn-secondary" onclick="executeAction('drivers')">
+                        🔧 Drivers
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Logs Card -->
+            <div class="card">
+                <h2>📋 Logs en temps réel</h2>
+                <button class="big-button btn-danger" onclick="clearLogs()" style="padding: 10px; font-size: 0.9em; margin-bottom: 10px;">
+                    Effacer les logs
+                </button>
+                <div class="logs-container" id="logsContainer">
+                    <div class="log-line">Connexion au système de logs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let isTaskRunning = false;
+        let eventSource = null;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            connectLogs();
+            setInterval(updateStatus, 5000); // Update every 5 seconds
+        });
+        
+        // Update status from API
+        function updateStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update checks
+                    updateCheck('status-internet', data.checks.internet);
+                    updateCheck('status-sudo', data.checks.sudo);
+                    updateCheck('status-python', data.checks.python_version);
+                    
+                    // Update counts
+                    document.getElementById('count-apt').textContent = data.packages.apt || 0;
+                    document.getElementById('count-flatpak').textContent = data.packages.flatpak || 0;
+                    const totalThemes = (data.packages.themes_gtk || 0) + 
+                                       (data.packages.themes_icons || 0) + 
+                                       (data.packages.themes_cursors || 0);
+                    document.getElementById('count-themes').textContent = totalThemes;
+                    
+                    // Update task status
+                    updateTaskStatus(data.task);
+                })
+                .catch(error => console.error('Status update error:', error));
+        }
+        
+        function updateCheck(elemId, isOk) {
+            const elem = document.getElementById(elemId);
+            if (isOk) {
+                elem.classList.add('ok');
+                elem.classList.remove('error');
+                elem.querySelector('.value').textContent = '✅';
+            } else {
+                elem.classList.add('error');
+                elem.classList.remove('ok');
+                elem.querySelector('.value').textContent = '❌';
+            }
+        }
+        
+        function updateTaskStatus(task) {
+            const statusDiv = document.getElementById('taskStatus');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const btnInstallAll = document.getElementById('btnInstallAll');
+            
+            if (task.running) {
+                isTaskRunning = true;
+                statusDiv.innerHTML = '<span class="spinner"></span>' + task.name;
+                statusDiv.classList.add('running');
+                progressBar.style.display = 'block';
+                progressFill.style.width = task.progress + '%';
+                progressFill.textContent = task.progress + '%';
+                btnInstallAll.disabled = true;
+                
+                // Disable all action buttons
+                document.querySelectorAll('.btn-secondary, .btn-danger').forEach(btn => {
+                    btn.disabled = true;
+                });
+            } else {
+                isTaskRunning = false;
+                statusDiv.textContent = task.name || 'Prêt à démarrer';
+                statusDiv.classList.remove('running');
+                
+                if (task.progress === 100 && task.name) {
+                    progressBar.style.display = 'block';
+                    progressFill.style.width = '100%';
+                    progressFill.textContent = '100%';
+                } else {
+                    progressBar.style.display = 'none';
+                }
+                
+                btnInstallAll.disabled = false;
+                
+                // Enable all action buttons
+                document.querySelectorAll('.btn-secondary, .btn-danger').forEach(btn => {
+                    btn.disabled = false;
+                });
+            }
+        }
+        
+        // Connect to log stream
+        function connectLogs() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource('/api/logs/stream');
+            
+            eventSource.onmessage = function(event) {
+                const logsContainer = document.getElementById('logsContainer');
+                const logLine = document.createElement('div');
+                logLine.className = 'log-line';
+                logLine.textContent = event.data;
+                logsContainer.appendChild(logLine);
+                
+                // Auto-scroll to bottom
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+                
+                // Limit number of log lines (keep last 500)
+                while (logsContainer.children.length > 500) {
+                    logsContainer.removeChild(logsContainer.firstChild);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('EventSource error:', error);
+                setTimeout(connectLogs, 5000); // Reconnect after 5 seconds
+            };
+        }
+        
+        // Execute all tasks
+        function executeAll() {
+            if (isTaskRunning) {
+                alert('Une tâche est déjà en cours !');
+                return;
+            }
+            
+            if (!confirm('Voulez-vous vraiment lancer l\'installation complète ?\n\nCela peut prendre plusieurs minutes.')) {
+                return;
+            }
+            
+            fetch('/api/execute/all', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLog('✅ Installation complète démarrée');
+                    } else {
+                        alert('Erreur : ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Execute error:', error);
+                    alert('Erreur réseau : ' + error);
+                });
+        }
+        
+        // Execute individual action
+        function executeAction(action) {
+            if (isTaskRunning) {
+                alert('Une tâche est déjà en cours !');
+                return;
+            }
+            
+            fetch('/api/execute/' + action, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLog('✅ ' + data.message);
+                    } else {
+                        alert('Erreur : ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Execute error:', error);
+                    alert('Erreur réseau : ' + error);
+                });
+        }
+        
+        // Execute recommended theme configuration
+        function executeRecommendedThemes() {
+            if (isTaskRunning) {
+                alert('Une tâche est déjà en cours !');
+                return;
+            }
+            
+            if (!confirm('Appliquer la configuration de thèmes recommandée ?\n\n' +
+                         'Cela va :\n' +
+                         '• Vérifier les thèmes installés\n' +
+                         '• Télécharger les thèmes manquants (si nécessaire)\n' +
+                         '• Appliquer la configuration via dconf\n\n' +
+                         'Continuer ?')) {
+                return;
+            }
+            
+            addLog('🎨 Démarrage de la configuration des thèmes...');
+            
+            fetch('/api/theme/apply_recommended', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLog('✅ ' + data.message);
+                    } else {
+                        alert('Erreur : ' + data.error);
+                        addLog('❌ Erreur : ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Theme config error:', error);
+                    alert('Erreur réseau : ' + error);
+                    addLog('❌ Erreur réseau : ' + error);
+                });
+        }
+        
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logsContainer').innerHTML = '';
+            fetch('/api/logs/clear', { method: 'POST' });
+        }
+        
+        // Helper to add log manually
+        function addLog(message) {
+            const logsContainer = document.getElementById('logsContainer');
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            logLine.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            logsContainer.appendChild(logLine);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+    </script>
+</body>
+</html>

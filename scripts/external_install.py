@@ -5,42 +5,34 @@ MintyForge - External Packages Installer
 ---------------------------------------
 Installs external packages (not from standard APT) like Distrobox or VirtualBox Oracle.
 Uses curses menu to select packages and execute installation commands.
+
+Security Note: External package commands from JSON are executed via bash.
+Ensure external_packages.json is trusted and not editable by untrusted users.
 """
 
 import os
+import sys
 import json
 import curses
-import subprocess
 from pathlib import Path
+
+# Add parent directory to path for utils import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    run_command,
+    info, success, warn, error,
+    load_package_list
+)
 
 CONFIG_FILE = Path("configs/external_packages.json")
 
-# --- Terminal Colors ---
-GREEN = "\033[1;32m"
-YELLOW = "\033[1;33m"
-RED = "\033[1;31m"
-BLUE = "\033[1;34m"
-RESET = "\033[0m"
-
-
-def info(msg: str): print(f"{BLUE}[INFO]{RESET} {msg}")
-def success(msg: str): print(f"{GREEN}[OK]{RESET} {msg}")
-def warn(msg: str): print(f"{YELLOW}[WARN]{RESET} {msg}")
-def error(msg: str): print(f"{RED}[ERROR]{RESET} {msg}")
-
-
-def run_cmd(cmd: str) -> bool:
-    """Execute shell command, return True if successful."""
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        error(f"Command failed: {cmd}\n{e}")
-        return False
-
 
 def install_package(pkg: dict):
-    """Run the installation command for an external package."""
+    """Run the installation command for an external package.
+    
+    Security: Commands are from trusted JSON config file.
+    Uses bash to execute complex shell commands (pipes, redirections, etc.).
+    """
     name = pkg.get("name")
     desc = pkg.get("description", "")
     cmd = pkg.get("cmd")
@@ -50,7 +42,9 @@ def install_package(pkg: dict):
         return
 
     info(f"Installing {name} - {desc}...")
-    if run_cmd(cmd):
+    # External commands can be complex, use bash safely
+    result = run_command(["bash", "-c", cmd])
+    if result.success:
         success(f"{name} installed successfully.")
     else:
         warn(f"Failed to install {name}.")
