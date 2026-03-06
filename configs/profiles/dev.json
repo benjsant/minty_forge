@@ -1,0 +1,41 @@
+{
+  "name": "Developpement",
+  "description": "Outils de developpement, conteneurs et editeurs",
+  "icon": "code",
+  "apt": [
+    { "name": "build-essential", "description": "Outils de compilation C/C++" },
+    { "name": "cmake", "description": "Systeme de build multiplateforme" },
+    { "name": "python3-pip", "description": "Gestionnaire de paquets Python" },
+    { "name": "python3-venv", "description": "Environnements virtuels Python" },
+    { "name": "nodejs", "description": "Runtime JavaScript" },
+    { "name": "npm", "description": "Gestionnaire de paquets Node.js" },
+    { "name": "podman", "description": "Moteur de conteneurs (alternative Docker)" },
+    { "name": "podman-compose", "description": "Docker-compose pour Podman" },
+    { "name": "sassc", "description": "Compilateur SASS" },
+    { "name": "jq", "description": "Processeur JSON en ligne de commande" },
+    { "name": "shellcheck", "description": "Linter pour scripts shell" },
+    { "name": "httpie", "description": "Client HTTP convivial en CLI" },
+    { "name": "meld", "description": "Comparaison visuelle de fichiers" },
+    { "name": "scrcpy", "description": "Affichage et controle d'appareils Android" }
+  ],
+  "flatpak": [
+    { "app": "io.podman_desktop.PodmanDesktop", "description": "GUI Podman Desktop" },
+    { "app": "io.github.dvlv.boxbuddyrs", "description": "GUI pour Distrobox" },
+    { "app": "com.getpostman.Postman", "description": "Client API REST" },
+    { "app": "io.dbeaver.DBeaverCommunity", "description": "Client base de donnees universel" },
+    { "app": "rest.insomnia.Insomnia", "description": "Client API HTTP/GraphQL" }
+  ],
+  "external": [
+    {
+      "name": "Visual Studio Code",
+      "description": "Editeur de code Microsoft (depot officiel)",
+      "cmd": "sudo bash -c 'wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main\" > /etc/apt/sources.list.d/vscode.list && apt update && apt install -y code'"
+    },
+    {
+      "name": "Distrobox",
+      "description": "Conteneurs Linux integres au bureau",
+      "cmd": "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh"
+    }
+  ],
+  "remove": []
+}

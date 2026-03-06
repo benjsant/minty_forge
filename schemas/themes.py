@@ -3,7 +3,7 @@
 """
 MintyForge - Theme Schemas
 ---------------------------
-Pydantic models for themes (GTK, icons, cursors, Kvantum).
+Pydantic models for themes (GTK, icons, cursors).
 """
 
 from typing import List
@@ -12,8 +12,7 @@ from pydantic import (
     Field,
     ConfigDict,
     field_validator,
-    model_validator,
-    RootModel
+    model_validator
 )
 
 
@@ -104,50 +103,4 @@ class ThemeList(BaseModel):
                 f"Duplicate theme names found: {', '.join(unique_dupes)}"
             )
         
-        return v
-
-
-# =============================================================================
-# Kvantum Models
-# =============================================================================
-
-class KvantumTheme(BaseModel):
-    """Model for Kvantum/Qt theme."""
-    
-    model_config = ConfigDict(str_strip_whitespace=True, extra='forbid')
-    
-    theme: str = Field(
-        ...,
-        min_length=1,
-        description="Qt theme name"
-    )
-    description: str = Field(
-        default="",
-        description="Theme description"
-    )
-    cmd_user: str = Field(
-        default="",
-        description="Command to apply theme for user"
-    )
-    cmd_root: str = Field(
-        default="",
-        description="Command to apply theme system-wide"
-    )
-
-
-class KvantumThemeList(RootModel[List[KvantumTheme]]):
-    """List of Kvantum/Qt themes (root list, not object-wrapped)."""
-    
-    root: List[KvantumTheme] = Field(
-        ...,
-        min_length=1,
-        description="List of Kvantum themes"
-    )
-    
-    @field_validator('root')
-    @classmethod
-    def validate_min_length(cls, v: List[KvantumTheme]) -> List[KvantumTheme]:
-        """Ensure at least one theme."""
-        if not v or len(v) == 0:
-            raise ValueError("Must contain at least one Kvantum theme")
         return v

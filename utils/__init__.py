@@ -12,6 +12,18 @@ This package provides:
 - validation: JSON configuration validation (Pydantic)
 """
 
+# State management (persistent action tracking + rollback)
+from .state_manager import (
+    StateManager,
+    StateEntry,
+    StateError,
+    get_state_manager,
+    ACTION_APT_INSTALL,
+    ACTION_APT_REMOVE,
+    ACTION_FLATPAK_INSTALL,
+    ACTION_EXTERNAL_INSTALL,
+)
+
 # Subprocess utilities (secure command execution)
 from .subprocess_utils import (
     run_command,
@@ -74,15 +86,11 @@ from .validation import (
     validate_flatpak_config,
     validate_external_config,
     validate_theme_config,
-    validate_kvantum_config,
     validate_all_configs,
     ConfigValidationError
 )
 
-# Pydantic schemas (from schemas package)
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Pydantic schemas (sibling package — project root must be on sys.path)
 from schemas import (
     Package,
     PackageList,
@@ -91,12 +99,20 @@ from schemas import (
     ExternalPackage,
     ExternalPackageList,
     Theme,
-    ThemeList,
-    KvantumTheme,
-    KvantumThemeList
+    ThemeList
 )
 
 __all__ = [
+    # State management
+    'StateManager',
+    'StateEntry',
+    'StateError',
+    'get_state_manager',
+    'ACTION_APT_INSTALL',
+    'ACTION_APT_REMOVE',
+    'ACTION_FLATPAK_INSTALL',
+    'ACTION_EXTERNAL_INSTALL',
+
     # Subprocess utilities
     'run_command',
     'run_sudo_command',
@@ -152,7 +168,6 @@ __all__ = [
     'validate_flatpak_config',
     'validate_external_config',
     'validate_theme_config',
-    'validate_kvantum_config',
     'validate_all_configs',
     'ConfigValidationError',
     'Package',
@@ -162,7 +177,5 @@ __all__ = [
     'ExternalPackage',
     'ExternalPackageList',
     'Theme',
-    'ThemeList',
-    'KvantumTheme',
-    'KvantumThemeList'
+    'ThemeList'
 ]

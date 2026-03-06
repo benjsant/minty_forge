@@ -1,0 +1,238 @@
+"""Routes legacy : status, logs, execute, theme."""
+import json
+import queue
+import socket
+import subprocess
+import threading
+import time
+from pathlib import Path
+
+from flask import Blueprint, jsonify, Response
+
+from utils import apt_update, apt_upgrade
+from utils.theme_manager import ThemeManager
+from routes.shared import (
+    log_info, log_success, log_warn, log_error,
+    log_queue, current_task, task_lock,
+    update_task_status, run_script
+)
+
+bp = Blueprint("legacy", __name__)
+
+_status_cache = {"data": None, "ts": 0}
+STATUS_CACHE_TTL = 8
+
+
+def _check_system():
+    checks = {"internet": False, "sudo": False, "python_version": True}
+    try:
+        socket.create_connection(("archive.ubuntu.com", 80), timeout=3)
+        checks["internet"] = True
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(["sudo", "-n", "true"], capture_output=True, timeout=1)
+        checks["sudo"] = r.returncode == 0
+    except Exception:
+        pass
+    return checks
+
+
+def _get_package_counts():
+    files = {
+        "apt": "configs/install.json",
+        "flatpak": "configs/flatpak.json",
+        "external": "configs/external_packages.json",
+        "themes_gtk": "configs/themes_gtk.json",
+        "themes_icons": "configs/themes_icons.json",
+        "themes_cursors": "configs/themes_cursors.json",
+    }
+    counts = {}
+    for key, path in files.items():
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            for list_key in ("packages", "flatpaks", "themes"):
+                if list_key in data:
+                    counts[key] = len(data[list_key])
+                    break
+            else:
+                counts[key] = 0
+        except Exception:
+            counts[key] = 0
+    return counts
+
+
+@bp.route('/api/status')
+def status():
+    now = time.time()
+    if _status_cache["data"] and now - _status_cache["ts"] < STATUS_CACHE_TTL:
+        cached = dict(_status_cache["data"])
+        cached["task"] = dict(current_task)
+        return jsonify(cached)
+    data = {
+        "checks": _check_system(),
+        "packages": _get_package_counts(),
+        "task": dict(current_task),
+    }
+    _status_cache["data"] = data
+    _status_cache["ts"] = now
+    return jsonify(data)
+
+
+@bp.route('/api/logs/stream')
+def stream_logs():
+    def generate():
+        try:
+            while True:
+                try:
+                    yield f"data: {log_queue.get(timeout=1)}\n\n"
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+        except GeneratorExit:
+            pass
+    return Response(generate(), mimetype='text/event-stream')
+
+
+@bp.route('/api/logs/clear', methods=['POST'])
+def clear_logs():
+    while not log_queue.empty():
+        try:
+            log_queue.get_nowait()
+        except queue.Empty:
+            break
+    return jsonify({"success": True})
+
+
+@bp.route('/api/execute/<action>', methods=['POST'])
+def execute_action(action):
+    action_map = {
+        "apt_install": "apt_install",
+        "apt_remove": "apt_remove",
+        "flatpak_install": "flatpak_install",
+        "themes_install": "themes_install",
+        "external_install": "external_install",
+        "drivers": "drivers",
+        "distroscript": "distroscript_install",
+    }
+    if action not in action_map:
+        return jsonify({"success": False, "error": "Action inconnue"}), 400
+
+    with task_lock:
+        if current_task["running"]:
+            return jsonify({"success": False, "error": "Tache en cours"}), 409
+        current_task.update(running=True, name=action, progress=0)
+
+    def run():
+        try:
+            run_script(action_map[action])
+        finally:
+            update_task_status("", False, 100)
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"success": True, "message": f"Lancement de {action}"})
+
+
+@bp.route('/api/execute/all', methods=['POST'])
+def execute_all():
+    with task_lock:
+        if current_task["running"]:
+            return jsonify({"success": False, "error": "Tache en cours"}), 409
+        current_task.update(running=True, name="Installation complete", progress=0)
+
+    def run_all():
+        tasks = [
+            ("Mise a jour systeme", "system_update"),
+            ("Paquets APT", "apt_install"),
+            ("Paquets externes", "external_install"),
+            ("Nettoyage", "apt_remove"),
+            ("Flatpaks", "flatpak_install"),
+            ("Themes", "themes_install"),
+            ("Drivers", "drivers"),
+        ]
+        critical = {"system_update", "apt_install"}
+        total = len(tasks)
+        failed = []
+        try:
+            for idx, (name, task) in enumerate(tasks):
+                update_task_status(name, True, int((idx / total) * 100))
+                log_info(f"=== {name} ({idx+1}/{total}) ===")
+                if task == "system_update":
+                    if not apt_update().success:
+                        log_error("apt update echoue, arret.")
+                        failed.append(name)
+                        break
+                    apt_upgrade()
+                else:
+                    if not run_script(task):
+                        failed.append(name)
+                        if task in critical:
+                            log_error(f"Tache critique echouee : {name}")
+                            break
+                time.sleep(0.5)
+        except Exception as e:
+            log_error(f"Erreur inattendue : {e}")
+            failed.append("erreur inattendue")
+        finally:
+            if failed:
+                update_task_status("Termine avec erreurs", False, 100)
+                log_warn(f"Erreurs : {', '.join(failed)}")
+            else:
+                update_task_status("Installation terminee", False, 100)
+                log_success("Installation complete terminee")
+
+    threading.Thread(target=run_all, daemon=True).start()
+    return jsonify({"success": True, "message": "Installation complete lancee"})
+
+
+@bp.route('/api/theme/status')
+def theme_status():
+    try:
+        config_file = Path("configs/theme_config_recommended.json")
+        if not config_file.exists():
+            return jsonify({"success": False, "error": "Fichier config introuvable"}), 404
+        result = ThemeManager().check_recommended_config(config_file)
+        return jsonify({"success": True, "config": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route('/api/theme/apply_recommended', methods=['POST'])
+def apply_recommended_theme():
+    with task_lock:
+        if current_task["running"]:
+            return jsonify({"success": False, "error": "Tache en cours"}), 409
+        current_task.update(running=True, name="Config themes recommandee", progress=0)
+
+    def run():
+        try:
+            config_file = Path("configs/theme_config_recommended.json")
+            if not config_file.exists():
+                log_error("Fichier config introuvable")
+                update_task_status("", False, 0)
+                return
+            log_info("Application de la config recommandee...")
+            update_task_status("Config themes recommandee", True, 20)
+            success, messages = ThemeManager().apply_recommended_config(config_file, install_missing=True)
+            for msg in messages:
+                if "✅" in msg:   log_success(msg)
+                elif "❌" in msg: log_error(msg)
+                elif "⚠️" in msg: log_warn(msg)
+                else:             log_info(msg)
+                with task_lock:
+                    prog = current_task.get("progress", 20)
+                if prog < 90:
+                    update_task_status("Config themes recommandee", True, prog + 10)
+                    time.sleep(0.2)
+            if success:
+                log_success("Config themes appliquee")
+                update_task_status("Config terminee", False, 100)
+            else:
+                log_error("Config terminee avec erreurs")
+                update_task_status("Erreurs detectees", False, 100)
+        except Exception as e:
+            log_error(f"Erreur config themes : {e}")
+            update_task_status("", False, 0)
+
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"success": True, "message": "Config themes lancee"})

@@ -1,0 +1,31 @@
+{
+  "name": "Systeme",
+  "description": "Virtualisation, sauvegarde et outils systeme avances",
+  "icon": "server",
+  "apt": [
+    { "name": "rpi-imager", "description": "Utilitaire d'imagerie Raspberry Pi" },
+    { "name": "weston", "description": "Compositeur Wayland de reference" },
+    { "name": "timeshift", "description": "Sauvegarde et restauration systeme" },
+    { "name": "synaptic", "description": "Gestionnaire de paquets graphique" },
+    { "name": "dconf-editor", "description": "Editeur de configuration dconf" },
+    { "name": "gnome-disk-utility", "description": "Utilitaire de disques GNOME" },
+    { "name": "smartmontools", "description": "Surveillance sante disques (S.M.A.R.T)" },
+    { "name": "iotop", "description": "Moniteur d'E/S disque" },
+    { "name": "sysstat", "description": "Outils de statistiques systeme (sar, iostat)" },
+    { "name": "net-tools", "description": "Outils reseau classiques (ifconfig, netstat)" },
+    { "name": "nmap", "description": "Scanner de ports reseau" },
+    { "name": "openssh-server", "description": "Serveur SSH" }
+  ],
+  "flatpak": [],
+  "external": [
+    {
+      "name": "VirtualBox 7.1",
+      "description": "Virtualisation Oracle VirtualBox",
+      "cmd": "sudo bash -c 'wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg && . /etc/os-release && CODENAME=${UBUNTU_CODENAME:-$VERSION_CODENAME} && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] http://download.virtualbox.org/virtualbox/debian ${CODENAME} contrib\" > /etc/apt/sources.list.d/virtualbox.list && apt update && apt install -y virtualbox-7.1 && usermod -aG vboxusers $SUDO_USER'"
+    }
+  ],
+  "remove": [
+    { "name": "transmission-*", "description": "Client torrent Transmission" },
+    { "name": "mintchat", "description": "Application de chat Mint" }
+  ]
+}

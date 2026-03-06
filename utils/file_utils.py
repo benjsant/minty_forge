@@ -105,8 +105,7 @@ def load_package_list(config_file: Path, validate: bool = True) -> List[Dict[str
                 validate_remove_config,
                 validate_flatpak_config,
                 validate_external_config,
-                validate_theme_config,
-                validate_kvantum_config
+                validate_theme_config
             )
             
             # Determine which validator to use based on filename
@@ -131,10 +130,6 @@ def load_package_list(config_file: Path, validate: bool = True) -> List[Dict[str
             elif "themes" in filename or "theme" in filename:
                 validated = validate_theme_config(config_file)
                 return [theme.model_dump() for theme in validated.themes]
-            
-            elif "kvantum" in filename and "json" in filename:
-                validated = validate_kvantum_config(config_file)
-                return [theme.model_dump() for theme in validated.root]
             
             else:
                 # Unknown config type - fall back to non-validated loading

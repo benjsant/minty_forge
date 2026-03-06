@@ -1,163 +1,111 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge – Theme Installer (Curses Edition)
+MintyForge - Theme Installer
 ----------------------------------------------
-Interactive desktop theming utility for Linux Mint Cinnamon.
-Installs GTK, Icon, and Cursor themes sequentially and applies them via dconf.
+Desktop theming utility for Linux Mint Cinnamon.
+Installs GTK, Icon, and Cursor themes and applies them via dconf.
 Updates Slick Greeter configuration if present.
+Called by the Flask web interface.
+
+Security Note: Theme cmd_user/cmd_root fields from JSON are executed via bash.
+Ensure theme config files are trusted and not editable by untrusted users.
 """
 
 import os
 import json
-import curses
-import subprocess
 import shutil
-import logging
 import shlex
 from pathlib import Path
 
-# ---------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------
-LOG_DIR = "logs"
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE = os.path.join(LOG_DIR, "mintyforge.log")
-
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import (
+    info, success, warn, error,
+    run_command, run_sudo_command, git_clone,
 )
 
-def log_info(msg): print(f"[INFO] {msg}"); logging.info(msg)
-def log_success(msg): print(f"[OK] {msg}"); logging.info(msg)
-def log_warn(msg): print(f"[WARN] {msg}"); logging.warning(msg)
-def log_error(msg): print(f"[ERROR] {msg}"); logging.error(msg)
-
 # ---------------------------------------------------------------------
-# User detection
+# Project-root-relative paths (safe regardless of CWD)
 # ---------------------------------------------------------------------
-USER_NAME = os.getenv("SUDO_USER") or os.getenv("USER")
-USER_HOME = str(Path(f"~{USER_NAME}").expanduser())
-
-if not USER_NAME:
-    log_error("Unable to detect user.")
-    exit(1)
-else:
-    log_info(f"Detected user: {USER_NAME} ({USER_HOME})")
-
-CONFIG_DIR = Path("./configs")
-THEMES_DIR = Path("./themes")
-ICONS_DIR = Path("./icons")
-CURSORS_DIR = Path("./cursors")
+PROJECT_DIR = Path(__file__).parent.parent
+CONFIG_DIR = PROJECT_DIR / "configs"
+THEMES_DIR = PROJECT_DIR / "themes"
+ICONS_DIR = PROJECT_DIR / "icons"
+CURSORS_DIR = PROJECT_DIR / "cursors"
 
 for d in [THEMES_DIR, ICONS_DIR, CURSORS_DIR]:
     d.mkdir(exist_ok=True)
 
 # ---------------------------------------------------------------------
+# User detection
+# ---------------------------------------------------------------------
+USER_NAME = os.getenv("SUDO_USER") or os.getenv("USER")
+USER_HOME = str(Path(f"~{USER_NAME}").expanduser()) if USER_NAME else ""
+
+if not USER_NAME:
+    error("Unable to detect user.")
+
+# ---------------------------------------------------------------------
 # Load JSON files
 # ---------------------------------------------------------------------
-def load_json(file_path: Path):
+def load_theme_json(file_path: Path):
+    """Load themes from a JSON config file. Returns empty list on error."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)["themes"]
     except Exception as e:
-        log_error(f"Failed to load {file_path}: {e}")
-        exit(1)
-
-themes_data = load_json(CONFIG_DIR / "themes_gtk.json")
-icons_data = load_json(CONFIG_DIR / "themes_icons.json")
-cursors_data = load_json(CONFIG_DIR / "themes_cursors.json")
-
-# ---------------------------------------------------------------------
-# Helper: safe command runner
-# ---------------------------------------------------------------------
-def run_cmd(cmd: str, cwd=None, as_root=False, timeout=60):
-    """
-    Execute shell command, capture output, return (ok, stdout, stderr).
-    - as_root: uses sudo if not already root.
-    - does NOT block waiting for password.
-    """
-    if as_root:
-        if os.geteuid() == 0:
-            full_cmd = ["bash", "-c", cmd]
-        else:
-            full_cmd = ["sudo", "-n", "bash", "-c", cmd]
-    else:
-        full_cmd = ["bash", "-c", cmd]
-
-    try:
-        proc = subprocess.run(
-            full_cmd,
-            cwd=cwd,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=os.environ.copy(),
-        )
-        if proc.stdout.strip():
-            log_info(proc.stdout.strip())
-        if proc.stderr.strip():
-            log_warn(proc.stderr.strip())
-        return True, proc.stdout.strip(), proc.stderr.strip()
-    except subprocess.TimeoutExpired:
-        log_error(f"Command timed out: {cmd}")
-        return False, "", "timeout"
-    except subprocess.CalledProcessError as e:
-        log_warn(f"Command failed: {cmd}\n{e.stderr}")
-        return False, e.stdout, e.stderr
-    except Exception as e:
-        log_error(f"Unexpected error running command: {cmd}\n{e}")
-        return False, "", str(e)
+        error(f"Failed to load {file_path}: {e}")
+        return []
 
 # ---------------------------------------------------------------------
 # Installation helpers
 # ---------------------------------------------------------------------
 def install_theme(theme: dict, target_dir: Path):
-    """Clone and install a theme sequentially (improved logging)."""
+    """Clone and install a theme sequentially."""
     name = theme.get("name", "unknown")
     url = theme.get("url", "")
     cmd_user = theme.get("cmd_user", "")
     cmd_root = theme.get("cmd_root", "")
 
-    log_info(f"Installing {name}...")
+    info(f"Installing {name}...")
 
     if url:
         if not target_dir.exists():
-            log_info(f"Cloning {url} into {target_dir}")
-            run_cmd(f"git clone --depth=1 {shlex.quote(url)} {shlex.quote(str(target_dir))}", timeout=120)
+            info(f"Cloning {url} into {target_dir}")
+            git_clone(url, target_dir, depth=1)
         else:
-            log_warn(f"{target_dir} already exists. Skipping clone.")
+            warn(f"{target_dir} already exists. Skipping clone.")
 
-    run_cmd(f"chown -R {shlex.quote(USER_NAME)}:{shlex.quote(USER_NAME)} {shlex.quote(str(target_dir))}", as_root=True)
+    run_sudo_command(["chown", "-R", f"{USER_NAME}:{USER_NAME}", str(target_dir)])
 
+    # cmd_user/cmd_root are shell commands from trusted JSON config
     if cmd_user:
-        run_cmd(cmd_user, cwd=str(target_dir))
+        run_command(["bash", "-c", cmd_user], cwd=target_dir)
     if cmd_root:
-        run_cmd(cmd_root, cwd=str(target_dir), as_root=True)
+        run_sudo_command(["bash", "-c", cmd_root], cwd=target_dir)
 
-    log_success(f"{name} installed.")
+    success(f"{name} installed.")
 
 def ensure_crudini():
     """Ensure crudini is installed for Slick Greeter config."""
     if shutil.which("crudini") is None:
-        log_warn("crudini not found, installing...")
-        run_cmd("apt-get update && apt-get install -y crudini", as_root=True)
+        warn("crudini not found, installing...")
+        run_sudo_command(["apt-get", "update"])
+        run_sudo_command(["apt-get", "install", "-y", "crudini"])
 
 def ensure_slick_greeter_conf():
     """Ensure slick-greeter.conf exists."""
-    greeter_conf = "/etc/lightdm/slick-greeter.conf"
-    if not os.path.exists(greeter_conf):
+    greeter_conf = Path("/etc/lightdm/slick-greeter.conf")
+    if not greeter_conf.exists():
         sample_conf = CONFIG_DIR / "slick-greeter.conf"
         if sample_conf.exists():
-            log_info("Copying slick-greeter.conf template...")
-            run_cmd(f"cp '{sample_conf}' '{greeter_conf}'", as_root=True)
+            info("Copying slick-greeter.conf template...")
+            run_sudo_command(["cp", str(sample_conf), str(greeter_conf)])
         else:
-            log_warn("No slick-greeter.conf template found.")
+            warn("No slick-greeter.conf template found.")
     else:
-        log_info("slick-greeter.conf found.")
+        info("slick-greeter.conf found.")
 
 def apply_slick_greeter_theme(gtk_theme, icon_theme, cursor_theme):
     """Update /etc/lightdm/slick-greeter.conf using crudini."""
@@ -165,38 +113,38 @@ def apply_slick_greeter_theme(gtk_theme, icon_theme, cursor_theme):
     ensure_slick_greeter_conf()
     greeter_conf = "/etc/lightdm/slick-greeter.conf"
 
-    run_cmd(f"crudini --set {greeter_conf} Greeter theme-name '{gtk_theme}'", as_root=True)
-    run_cmd(f"crudini --set {greeter_conf} Greeter icon-theme-name '{icon_theme}'", as_root=True)
-    run_cmd(f"crudini --set {greeter_conf} Greeter cursor-theme-name '{cursor_theme}'", as_root=True)
-    log_success("Slick Greeter updated.")
+    run_sudo_command(["crudini", "--set", greeter_conf, "Greeter", "theme-name", gtk_theme])
+    run_sudo_command(["crudini", "--set", greeter_conf, "Greeter", "icon-theme-name", icon_theme])
+    run_sudo_command(["crudini", "--set", greeter_conf, "Greeter", "cursor-theme-name", cursor_theme])
+    success("Slick Greeter updated.")
 
 # ---------------------------------------------------------------------
 # Theme application (dconf + gsettings)
 # ---------------------------------------------------------------------
 def apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme):
     """Apply theme values using gsettings (applies immediately in session)."""
-    cmds = [
-        f"gsettings set org.cinnamon.desktop.interface gtk-theme '{gtk_theme}'",
-        f"gsettings set org.cinnamon.desktop.interface icon-theme '{icon_theme}'",
-        f"gsettings set org.cinnamon.desktop.interface cursor-theme '{cursor_theme}'",
-        f"gsettings set org.cinnamon.desktop.wm.preferences theme '{gtk_theme}'",
-        f"gsettings set org.cinnamon.theme name '{gtk_theme}'",
+    settings = [
+        ["gsettings", "set", "org.cinnamon.desktop.interface", "gtk-theme", gtk_theme],
+        ["gsettings", "set", "org.cinnamon.desktop.interface", "icon-theme", icon_theme],
+        ["gsettings", "set", "org.cinnamon.desktop.interface", "cursor-theme", cursor_theme],
+        ["gsettings", "set", "org.cinnamon.desktop.wm.preferences", "theme", gtk_theme],
+        ["gsettings", "set", "org.cinnamon.theme", "name", gtk_theme],
     ]
     any_ok = False
-    for c in cmds:
-        ok, _, err = run_cmd(c)
-        if ok:
+    for cmd in settings:
+        result = run_command(cmd)
+        if result.success:
             any_ok = True
         else:
-            log_warn(f"gsettings failed: {c} -> {err}")
+            warn(f"gsettings failed: {' '.join(cmd)}")
     if any_ok:
-        log_success("Theme applied via gsettings.")
+        success("Theme applied via gsettings.")
 
 def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
     """Create dconf dump file and load it into current user session (no sudo)."""
     base_file = CONFIG_DIR / "dconf_base"
     if not base_file.exists():
-        log_warn(f"{base_file} not found, creating minimal base...")
+        warn(f"{base_file} not found, creating minimal base...")
         base_content = "[org/cinnamon/desktop/interface]\n"
     else:
         base_content = base_file.read_text(encoding="utf-8")
@@ -263,81 +211,56 @@ def apply_theme_dconf(gtk_theme, icon_theme, cursor_theme):
     # Write new dconf data
     dconf_file = "/tmp/minty_theme.dconf"
     Path(dconf_file).write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-    log_info(f"Wrote dconf dump to {dconf_file}")
+    info(f"Wrote dconf dump to {dconf_file}")
 
-    ok, _, err = run_cmd(f"dconf load / < {shlex.quote(dconf_file)}")
-    if not ok:
-        log_warn(f"dconf load failed: {err}. Applying via gsettings instead.")
+    # dconf load requires shell redirection
+    result = run_command(["bash", "-c", f"dconf load / < {shlex.quote(dconf_file)}"])
+    if not result.success:
+        warn("dconf load failed. Applying via gsettings instead.")
         apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme)
     else:
-        log_success("Theme applied via dconf (including Cinnamon shell).")
+        success("Theme applied via dconf (including Cinnamon shell).")
         apply_theme_gsettings(gtk_theme, icon_theme, cursor_theme)
-
-# ---------------------------------------------------------------------
-# Curses UI
-# ---------------------------------------------------------------------
-def select_theme(stdscr, themes, category):
-    curses.curs_set(0)
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
-    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    selected_idx = 0
-
-    while True:
-        stdscr.clear()
-        h, w = stdscr.getmaxyx()
-        title = f"Select {category} Theme"
-        stdscr.attron(curses.color_pair(2))
-        stdscr.addstr(1, max(0, w // 2 - len(title) // 2), title)
-        stdscr.attroff(curses.color_pair(2))
-
-        for idx, theme in enumerate(themes):
-            line = f"{theme['name']} — {theme.get('description','')}"
-            x = max(2, w // 2 - len(line) // 2)
-            y = 3 + idx
-            if idx == selected_idx:
-                stdscr.attron(curses.color_pair(1))
-                stdscr.addstr(y, x, line)
-                stdscr.attroff(curses.color_pair(1))
-            else:
-                stdscr.addstr(y, x, line)
-
-        stdscr.refresh()
-        key = stdscr.getch()
-        if key == curses.KEY_UP and selected_idx > 0:
-            selected_idx -= 1
-        elif key == curses.KEY_DOWN and selected_idx < len(themes) - 1:
-            selected_idx += 1
-        elif key in [10, 13]:
-            return themes[selected_idx]
 
 # ---------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------
-def run_curses_installer(stdscr):
-    stdscr.clear()
-    stdscr.addstr(2, 2, "[MintyForge] Preparing desktop environment...")
-    stdscr.refresh()
+def run_all_themes():
+    """Install all themes and apply the first of each category."""
+    themes_data = load_theme_json(CONFIG_DIR / "themes_gtk.json")
+    icons_data = load_theme_json(CONFIG_DIR / "themes_icons.json")
+    cursors_data = load_theme_json(CONFIG_DIR / "themes_cursors.json")
 
-    gtk_theme = select_theme(stdscr, themes_data, "GTK")
-    icon_theme = select_theme(stdscr, icons_data, "Icon")
-    cursor_theme = select_theme(stdscr, cursors_data, "Cursor")
+    if not themes_data or not icons_data or not cursors_data:
+        error("Missing theme configuration files, aborting.")
+        return
 
-    stdscr.clear()
-    stdscr.addstr(2, 2, "Installing selected themes...")
-    stdscr.refresh()
+    info("Installing all GTK themes...")
+    for theme in themes_data:
+        install_theme(theme, THEMES_DIR / theme['name_to_use'])
 
-    install_theme(gtk_theme, THEMES_DIR / gtk_theme['name_to_use'])
-    install_theme(icon_theme, ICONS_DIR / icon_theme['name_to_use'])
-    install_theme(cursor_theme, CURSORS_DIR / cursor_theme['name_to_use'])
+    info("Installing all icon themes...")
+    for theme in icons_data:
+        install_theme(theme, ICONS_DIR / theme['name_to_use'])
 
-    apply_theme_dconf(gtk_theme['name_to_use'], icon_theme['name_to_use'], cursor_theme['name_to_use'])
-    apply_slick_greeter_theme(gtk_theme['name_to_use'], icon_theme['name_to_use'], cursor_theme['name_to_use'])
+    info("Installing all cursor themes...")
+    for theme in cursors_data:
+        install_theme(theme, CURSORS_DIR / theme['name_to_use'])
 
-    stdscr.addstr(10, 2, "🎉 Theme installation and configuration completed successfully!")
-    stdscr.addstr(12, 2, "Press any key to exit...")
-    stdscr.refresh()
-    stdscr.getch()
+    # Apply the first theme of each category
+    gtk_name = themes_data[0]['name_to_use']
+    icon_name = icons_data[0]['name_to_use']
+    cursor_name = cursors_data[0]['name_to_use']
+
+    info(f"Applying themes: GTK={gtk_name}, Icons={icon_name}, Cursor={cursor_name}")
+    apply_theme_dconf(gtk_name, icon_name, cursor_name)
+    apply_slick_greeter_theme(gtk_name, icon_name, cursor_name)
+    success("All themes installed and applied.")
+
+
+def main():
+    run_all_themes()
+
 
 if __name__ == "__main__":
-    curses.wrapper(run_curses_installer)
+    main()

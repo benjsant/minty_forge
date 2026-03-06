@@ -11,15 +11,12 @@ from pathlib import Path
 from typing import List, Union
 from pydantic import ValidationError
 
-# Import schemas
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import schemas (sibling package — project root must be on sys.path)
 from schemas import (
     Package, PackageList,
     FlatpakApp, FlatpakList,
     ExternalPackage, ExternalPackageList,
-    Theme, ThemeList,
-    KvantumTheme, KvantumThemeList
+    Theme, ThemeList
 )
 
 
@@ -126,11 +123,6 @@ def validate_theme_config(path: Union[str, Path]) -> ThemeList:
     return validate_config(path, ThemeList)
 
 
-def validate_kvantum_config(path: Union[str, Path]) -> KvantumThemeList:
-    """Validate kvantum.json configuration."""
-    return validate_config(path, KvantumThemeList)
-
-
 def validate_all_configs(config_dir: Union[str, Path] = "configs") -> dict:
     """
     Validate all configuration files in the configs directory.
@@ -156,7 +148,6 @@ def validate_all_configs(config_dir: Union[str, Path] = "configs") -> dict:
         ("themes_gtk.json", validate_theme_config),
         ("themes_icons.json", validate_theme_config),
         ("themes_cursors.json", validate_theme_config),
-        ("kvantum.json", validate_kvantum_config),
     ]
     
     for config_file, validator in config_validations:
@@ -219,10 +210,6 @@ if __name__ == "__main__":
                     item_type = "flatpaks"
                 elif hasattr(result, 'themes'):
                     count = len(result.themes)
-                    item_type = "themes"
-                elif hasattr(result, 'root'):
-                    # RootModel (kvantum.json)
-                    count = len(result.root)
                     item_type = "themes"
                 else:
                     count = "?"

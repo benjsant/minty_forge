@@ -1,0 +1,21 @@
+{
+  "name": "Gaming",
+  "description": "Steam, Bottles, Heroic et outils de gaming PC",
+  "icon": "gamepad",
+  "apt": [
+    { "name": "steam-installer", "description": "Plateforme de jeux Steam" },
+    { "name": "gamemode", "description": "Optimiseur de performances Feral GameMode" },
+    { "name": "mangohud", "description": "Overlay de performances Vulkan/OpenGL" },
+    { "name": "goverlay", "description": "Interface graphique pour MangoHud" }
+  ],
+  "flatpak": [
+    { "app": "com.usebottles.bottles", "description": "Gestionnaire d'environnements Wine" },
+    { "app": "com.heroicgameslauncher.hgl", "description": "Launcher Epic Games / GOG" },
+    { "app": "page.kramo.Cartridges", "description": "Launcher de jeux unifie (remplace Lutris)" },
+    { "app": "net.davidotek.pupgui2", "description": "ProtonUp-Qt - Gestionnaire de versions Proton" },
+    { "app": "org.freedesktop.Platform.VulkanLayer.MangoHud", "description": "MangoHud runtime Flatpak" },
+    { "app": "com.discordapp.Discord", "description": "Discord - Communication gaming" }
+  ],
+  "external": [],
+  "remove": []
+}

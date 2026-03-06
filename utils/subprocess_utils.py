@@ -7,9 +7,9 @@ Secure subprocess wrappers that avoid shell=True and command injection risks.
 Provides safe alternatives for common system commands.
 """
 
+import sys
 import subprocess
-import shlex
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from pathlib import Path
 
 
@@ -240,15 +240,16 @@ def flatpak_list() -> List[str]:
 def check_flatpak_installed(app_id: str) -> bool:
     """
     Check if a Flatpak application is installed.
-    
+    Uses 'flatpak info' for O(1) lookup instead of listing all apps.
+
     Args:
         app_id: Flatpak application ID
-    
+
     Returns:
         True if installed, False otherwise
     """
-    installed_apps = flatpak_list()
-    return app_id in installed_apps
+    result = run_command(["flatpak", "info", app_id], capture_output=True)
+    return result.success
 
 
 def git_clone(repo_url: str, target_dir: Path, depth: Optional[int] = None) -> CommandResult:
@@ -311,32 +312,8 @@ def run_python_script(script_path: Path, args: Optional[List[str]] = None, cwd: 
     Example:
         result = run_python_script(Path("setup.py"), ["install"])
     """
-    cmd = ["python3", str(script_path)]
+    cmd = [sys.executable, str(script_path)]
     if args:
         cmd.extend(args)
     
     return run_command(cmd, cwd=cwd)
-
-
-# For backwards compatibility with old shell=True code
-def run_shell_command_safe(command_string: str, **kwargs) -> CommandResult:
-    """
-    DEPRECATED: Parse a shell command string and run it safely.
-    This is a transitional function. Prefer using run_command() with a list directly.
-    
-    Args:
-        command_string: Command as a string (will be parsed)
-        **kwargs: Additional arguments for run_command
-    
-    Returns:
-        CommandResult object
-    
-    Warning:
-        This uses shlex.split() which is safer than shell=True but not perfect.
-        Prefer building command lists directly when possible.
-    """
-    try:
-        cmd_list = shlex.split(command_string)
-        return run_command(cmd_list, **kwargs)
-    except ValueError as e:
-        return CommandResult(-1, "", f"Failed to parse command: {e}")

@@ -1,0 +1,18 @@
+{
+  "name": "NVIDIA GPU",
+  "description": "Pilotes et outils pour cartes graphiques NVIDIA",
+  "icon": "gpu",
+  "apt": [
+    { "name": "nvidia-driver-550", "description": "Pilote NVIDIA 550 (recommande)" },
+    { "name": "nvidia-settings", "description": "Panneau de configuration NVIDIA" },
+    { "name": "nvidia-prime", "description": "Gestion Optimus (laptop hybrid GPU)" },
+    { "name": "vulkan-tools", "description": "Outils Vulkan (vulkaninfo)" },
+    { "name": "libvulkan1", "description": "Loader Vulkan" },
+    { "name": "libvulkan1:i386", "description": "Loader Vulkan 32-bit" },
+    { "name": "mesa-utils", "description": "Utilitaires Mesa (glxinfo)" },
+    { "name": "nvtop", "description": "Moniteur d'utilisation GPU NVIDIA" }
+  ],
+  "flatpak": [],
+  "external": [],
+  "remove": []
+}

@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge - Interactive Flatpak Installer
-------------------------------------------
-Provides a curses-based interface to install Flatpaks.
-Includes an option to install all Flatpaks at once.
+MintyForge - Flatpak Installer
+---------------------------------
+Installs all Flatpak apps defined in configs/flatpak.json.
+Called by the Flask web interface.
 
 Security: Uses secure subprocess calls without shell=True
 """
 
-import os
 import sys
 import json
-import curses
 from pathlib import Path
 
-# Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import (
     check_flatpak_installed, flatpak_install,
     info, success, warn, error,
-    load_package_list
+    get_state_manager, ACTION_FLATPAK_INSTALL
 )
 
-CONFIG_FILE = Path("configs/flatpak.json")
+CONFIG_FILE = Path(__file__).parent.parent / "configs/flatpak.json"
 
 
 def install_single_flatpak(flatpak: dict):
@@ -42,6 +39,15 @@ def install_single_flatpak(flatpak: dict):
 
     info(f"Installing {app} - {desc} from {source}...")
     result = flatpak_install(app, remote=source)
+
+    get_state_manager().record(
+        action=ACTION_FLATPAK_INSTALL,
+        target=app,
+        success=result.success,
+        rollback_cmd=["flatpak", "uninstall", "-y", app],
+        metadata={"description": desc, "source": source},
+    )
+
     if result.success:
         success(f"{app} installed successfully.")
     else:
@@ -53,55 +59,9 @@ def install_all_flatpaks(flatpaks: list[dict]):
     info("Starting installation of all Flatpaks...")
     for flatpak in flatpaks:
         install_single_flatpak(flatpak)
-    success("✅ All Flatpaks installed successfully.")
+    success("All Flatpaks processed.")
 
 
-# --- Curses menu ---
-def curses_menu(stdscr, flatpaks: list[dict]):
-    curses.curs_set(0)
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
-    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-
-    current_row = 0
-    menu_items = [{"app": "__ALL__", "description": "Install ALL Flatpaks"}] + flatpaks
-
-    while True:
-        stdscr.clear()
-        height, width = stdscr.getmaxyx()
-
-        stdscr.attron(curses.color_pair(2))
-        stdscr.addstr(0, 0, "MintyForge - Flatpak Installer")
-        stdscr.attroff(curses.color_pair(2))
-        stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to install | q to quit")
-        stdscr.addstr(2, 0, "─" * (width - 1))
-
-        for idx, item in enumerate(menu_items):
-            app = item.get("app")
-            desc = item.get("description", "")
-            label = f"👉 {desc}" if app == "__ALL__" else f"{app} - {desc}"
-
-            if idx == current_row:
-                stdscr.attron(curses.color_pair(1))
-                stdscr.addstr(idx + 4, 2, label[:width - 4])
-                stdscr.attroff(curses.color_pair(1))
-            else:
-                stdscr.addstr(idx + 4, 2, label[:width - 4])
-
-        stdscr.refresh()
-        key = stdscr.getch()
-
-        if key == curses.KEY_UP and current_row > 0:
-            current_row -= 1
-        elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
-            current_row += 1
-        elif key in (10, 13):  # ENTER
-            return menu_items[current_row]
-        elif key in [ord("q"), ord("Q")]:
-            return None
-
-
-# --- Main loop ---
 def main():
     if not CONFIG_FILE.exists():
         error(f"{CONFIG_FILE} not found.")
@@ -119,34 +79,7 @@ def main():
         warn("No Flatpaks found in config.")
         return
 
-    info("Launching MintyForge Flatpak Installer...")
-
-    while True:
-        try:
-            selected = curses.wrapper(lambda s: curses_menu(s, flatpaks))
-        except curses.error:
-            error("Curses display error encountered.")
-            break
-
-        if not selected:
-            break
-
-        os.system("clear")
-        print(f"\n=== Installing: {selected.get('description', selected.get('app'))} ===\n")
-
-        if selected["app"] == "__ALL__":
-            install_all_flatpaks(flatpaks)
-        else:
-            install_single_flatpak(selected)
-
-        try:
-            input("\nPress ENTER to return to the menu...")
-        except KeyboardInterrupt:
-            warn("Returning to menu...")
-
-        os.system("clear")
-
-    success("Finished executing flatpak_install.")
+    install_all_flatpaks(flatpaks)
 
 
 if __name__ == "__main__":

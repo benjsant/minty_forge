@@ -1,0 +1,26 @@
+{
+  "name": "Vie privee",
+  "description": "Outils de securite, VPN et protection de la vie privee",
+  "icon": "shield",
+  "apt": [
+    { "name": "clamtk", "description": "Interface graphique pour ClamAV antivirus" },
+    { "name": "clamav", "description": "Antivirus ClamAV" },
+    { "name": "clamav-daemon", "description": "Service antivirus ClamAV" },
+    { "name": "ufw", "description": "Pare-feu simplifie" },
+    { "name": "gufw", "description": "Interface graphique pour le pare-feu UFW" },
+    { "name": "keepassxc", "description": "Gestionnaire de mots de passe (local)" },
+    { "name": "gnupg", "description": "Chiffrement et signature GPG" },
+    { "name": "wireguard", "description": "VPN WireGuard (rapide et moderne)" },
+    { "name": "wireguard-tools", "description": "Outils CLI WireGuard" }
+  ],
+  "flatpak": [
+    { "app": "org.mozilla.firefox", "description": "Firefox - Navigateur respectueux de la vie privee" },
+    { "app": "com.bitwarden.desktop", "description": "Bitwarden - Gestionnaire de mots de passe" },
+    { "app": "org.signal.Signal", "description": "Signal - Messagerie chiffree" },
+    { "app": "org.torproject.torbrowser-launcher", "description": "Tor Browser - Navigation anonyme" }
+  ],
+  "external": [],
+  "remove": [
+    { "name": "seahorse", "description": "Gestionnaire de trousseau GNOME" }
+  ]
+}

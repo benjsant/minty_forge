@@ -1,0 +1,61 @@
+{
+  "name": "Configuration Recommandée (Drawile)",
+  "description": "Configuration personnelle testée et approuvée",
+  "gtk_theme": {
+    "name": "Mint-Y-Dark",
+    "source": "system",
+    "description": "Thème GTK par défaut de Linux Mint (déjà installé)"
+  },
+  "icon_theme": {
+    "name": "Mint-Y-Teal",
+    "source": "system",
+    "description": "Icônes par défaut de Linux Mint (déjà installées)"
+  },
+  "cursor_theme": {
+    "name": "DMZ-Black",
+    "source": "system",
+    "description": "Curseur par défaut (déjà installé)"
+  },
+  "optional_themes": [
+    {
+      "name": "Qogir-Dark",
+      "type": "gtk",
+      "git_url": "https://github.com/vinceliuice/Qogir-theme.git",
+      "install_cmd": "bash install.sh -d ~/.themes -c dark",
+      "check_paths": [
+        "~/.themes/Qogir-Dark",
+        "/usr/share/themes/Qogir-Dark"
+      ],
+      "description": "Thème GTK moderne et élégant"
+    },
+    {
+      "name": "WhiteSur",
+      "type": "gtk",
+      "git_url": "https://github.com/vinceliuice/WhiteSur-gtk-theme.git",
+      "install_cmd": "bash install.sh -d ~/.themes -c dark",
+      "check_paths": [
+        "~/.themes/WhiteSur-dark",
+        "/usr/share/themes/WhiteSur-dark"
+      ],
+      "description": "Thème macOS-like pour GTK"
+    },
+    {
+      "name": "Tela-circle-dark",
+      "type": "icon",
+      "git_url": "https://github.com/vinceliuice/Tela-circle-icon-theme.git",
+      "install_cmd": "bash install.sh -d ~/.local/share/icons",
+      "check_paths": [
+        "~/.local/share/icons/Tela-circle-dark",
+        "/usr/share/icons/Tela-circle-dark"
+      ],
+      "description": "Icônes circulaires modernes"
+    }
+  ],
+  "dconf_settings": {
+    "[org/cinnamon/desktop/interface]": {
+      "cursor-theme": "DMZ-Black",
+      "gtk-theme": "Mint-Y-Dark",
+      "icon-theme": "Mint-Y-Teal"
+    }
+  }
+}

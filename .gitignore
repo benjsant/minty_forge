@@ -58,9 +58,11 @@ Desktop.ini
 ehthumbs.db
 
 # --- MintyForge specific ---
-# Configs may be customized by users, so ignore local ones
-configs/*.json
-!configs/default_*.json  # keep default templates
+# Generated dconf files (user-specific)
+configs/dconf_custom.dconf
+
+# State manager data (user-specific)
+data/state.json
 
 # Generated installer logs or temp files
 logs/

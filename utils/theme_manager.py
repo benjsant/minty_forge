@@ -9,12 +9,12 @@ Gestion intelligente des thèmes :
 - Applique configuration dconf
 """
 
-import os
 import json
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+from .subprocess_utils import run_command, git_clone
 
 
 class ThemeManager:
@@ -117,45 +117,34 @@ class ThemeManager:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             clone_path = temp_path / theme_name
-            
+
             try:
                 # 1. Git clone
-                print(f"📥 Téléchargement de {theme_name}...")
-                result = subprocess.run(
-                    ["git", "clone", "--depth=1", git_url, str(clone_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=300
-                )
-                
-                if result.returncode != 0:
-                    return False, f"❌ Échec git clone : {result.stderr}"
-                
-                # 2. Installation
-                print(f"🔨 Installation de {theme_name}...")
-                result = subprocess.run(
-                    install_cmd,
-                    shell=True,
+                print(f"Telechargement de {theme_name}...")
+                result = git_clone(git_url, clone_path, depth=1)
+                if not result.success:
+                    return False, f"Echec git clone : {result.stderr}"
+
+                # 2. Installation (install_cmd is a shell command from trusted config)
+                print(f"Installation de {theme_name}...")
+                result = run_command(
+                    ["bash", "-c", install_cmd],
                     cwd=clone_path,
                     capture_output=True,
-                    text=True,
                     timeout=300
                 )
-                
-                if result.returncode != 0:
-                    return False, f"❌ Échec installation : {result.stderr}"
-                
+                if not result.success:
+                    return False, f"Echec installation : {result.stderr}"
+
                 # 3. Vérifier que l'installation a réussi
                 is_installed, theme_path = self.is_theme_installed(theme_name, theme_type)
                 if is_installed:
-                    return True, f"✅ Thème {theme_name} installé avec succès : {theme_path}"
+                    return True, f"Theme {theme_name} installe avec succes : {theme_path}"
                 else:
-                    return False, f"⚠️  Installation terminée mais thème non trouvé"
-                
-            except subprocess.TimeoutExpired:
-                return False, f"❌ Timeout lors de l'installation de {theme_name}"
+                    return False, f"Installation terminee mais theme non trouve"
+
             except Exception as e:
-                return False, f"❌ Erreur : {str(e)}"
+                return False, f"Erreur : {str(e)}"
     
     def apply_dconf_theme(
         self,
@@ -182,23 +171,17 @@ class ThemeManager:
         
         results = []
         for schema, key, value in settings:
-            try:
-                result = subprocess.run(
-                    ["gsettings", "set", schema, key, value],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                
-                if result.returncode == 0:
-                    results.append(f"✅ {key}: {value}")
-                else:
-                    results.append(f"❌ {key}: {result.stderr}")
-            
-            except Exception as e:
-                results.append(f"❌ {key}: {str(e)}")
+            result = run_command(
+                ["gsettings", "set", schema, key, value],
+                capture_output=True,
+                timeout=10
+            )
+            if result.success:
+                results.append(f"OK {key}: {value}")
+            else:
+                results.append(f"FAIL {key}: {result.stderr}")
         
-        success = all("✅" in r for r in results)
+        success = all(r.startswith("OK ") for r in results)
         message = "\n".join(results)
         
         return success, message

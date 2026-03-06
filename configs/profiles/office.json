@@ -1,0 +1,21 @@
+{
+  "name": "Bureautique",
+  "description": "Suite bureautique, email, notes et outils PDF",
+  "icon": "office",
+  "apt": [
+    { "name": "libreoffice", "description": "Suite bureautique LibreOffice" },
+    { "name": "libreoffice-l10n-fr", "description": "LibreOffice - traduction francaise" },
+    { "name": "libreoffice-help-fr", "description": "LibreOffice - aide en francais" },
+    { "name": "hunspell-fr", "description": "Dictionnaire francais pour le correcteur" },
+    { "name": "pdfarranger", "description": "Fusion et decoupe de PDF" },
+    { "name": "foliate", "description": "Lecteur de livres numeriques (EPUB)" }
+  ],
+  "flatpak": [
+    { "app": "org.mozilla.Thunderbird", "description": "Thunderbird - Client email" },
+    { "app": "md.obsidian.Obsidian", "description": "Obsidian - Prise de notes Markdown" },
+    { "app": "com.github.flxzt.rnote", "description": "Rnote - Notes manuscrites et annotations" },
+    { "app": "org.onlyoffice.desktopeditors", "description": "OnlyOffice - Suite bureautique alternative" }
+  ],
+  "external": [],
+  "remove": []
+}

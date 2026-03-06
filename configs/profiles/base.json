@@ -1,0 +1,36 @@
+{
+  "name": "Base",
+  "description": "Outils essentiels pour tout poste Linux Mint",
+  "icon": "wrench",
+  "apt": [
+    { "name": "build-essential", "description": "Outils de compilation (gcc, make...)" },
+    { "name": "git", "description": "Gestionnaire de versions" },
+    { "name": "curl", "description": "Transfert de donnees en ligne de commande" },
+    { "name": "wget", "description": "Telechargeur reseau" },
+    { "name": "htop", "description": "Moniteur systeme interactif" },
+    { "name": "ncdu", "description": "Analyseur d'espace disque ncurses" },
+    { "name": "lshw", "description": "Listeur de materiel" },
+    { "name": "numlockx", "description": "Activer le numlock au demarrage X" },
+    { "name": "pavucontrol", "description": "Controle de volume PulseAudio" },
+    { "name": "gparted", "description": "Editeur de partitions" },
+    { "name": "flameshot", "description": "Capture d'ecran avancee" },
+    { "name": "meld", "description": "Comparaison visuelle de fichiers" },
+    { "name": "crudini", "description": "Editeur de fichiers INI en CLI" },
+    { "name": "ubuntu-restricted-extras", "description": "Codecs multimedia et polices" },
+    { "name": "ttf-mscorefonts-installer", "description": "Polices Microsoft TrueType" },
+    { "name": "fonts-firacode", "description": "Police FiraCode pour le code" },
+    { "name": "fonts-dejavu", "description": "Famille de polices DejaVu" },
+    { "name": "gtk2-engines-murrine", "description": "Moteur GTK2 pour les themes" },
+    { "name": "gtk2-engines-pixbuf", "description": "Moteur GTK2 pixbuf" },
+    { "name": "plymouth-themes", "description": "Themes d'ecran de demarrage" }
+  ],
+  "flatpak": [
+    { "app": "com.github.tchx84.Flatseal", "description": "Gestionnaire de permissions Flatpak" },
+    { "app": "com.github.qarmin.czkawka", "description": "Nettoyeur de fichiers doublons" }
+  ],
+  "external": [],
+  "remove": [
+    { "name": "mintwelcome", "description": "Ecran d'accueil Linux Mint" },
+    { "name": "gnome-screenshot", "description": "Outil de capture GNOME (remplace par Flameshot)" }
+  ]
+}

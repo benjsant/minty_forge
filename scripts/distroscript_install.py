@@ -97,5 +97,9 @@ def install_distroscript():
         error("Distroscript execution failed.")
 
 # -------- Entrypoint --------
-if __name__ == "__main__":
+def main():
     install_distroscript()
+
+
+if __name__ == "__main__":
+    main()

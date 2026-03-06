@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MintyForge - Interactive APT Remover (stable curses version)
-------------------------------------------------------------
-Curses-based interface to remove unwanted APT packages.
-Includes an option to remove all listed packages at once.
+MintyForge - APT Remover
+--------------------------
+Removes unwanted APT packages defined in configs/remove.json.
+Called by the Flask web interface.
 
 Security: Uses secure subprocess calls without shell=True
 """
 
-import os
 import sys
 import json
-import curses
 from pathlib import Path
 
-# Add parent directory to path for utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import (
     check_package_installed, apt_remove, run_sudo_command,
     info, success, warn, error,
-    load_package_list
+    get_state_manager, ACTION_APT_REMOVE
 )
 
-# --- Configuration paths ---
-CONFIG_FILE = Path("configs/remove.json")
+CONFIG_FILE = Path(__file__).parent.parent / "configs/remove.json"
+
 
 def remove_single_package(pkg: dict):
     """Remove a single package."""
@@ -38,6 +35,15 @@ def remove_single_package(pkg: dict):
     if check_package_installed(name):
         info(f"Removing {name} ({desc})...")
         result = apt_remove([name], purge=True)
+
+        get_state_manager().record(
+            action=ACTION_APT_REMOVE,
+            target=name,
+            success=result.success,
+            rollback_cmd=["apt", "install", "-y", name],
+            metadata={"description": desc},
+        )
+
         if result.success:
             success(f"{name} removed successfully.")
         else:
@@ -45,82 +51,17 @@ def remove_single_package(pkg: dict):
     else:
         warn(f"{name} not installed, skipping.")
 
+
 def remove_all_packages(packages: list[dict]):
     """Remove all packages from the config."""
     info("Removing all unwanted packages...")
-    
+
     for pkg in packages:
-        name = pkg.get("name")
-        if not name:
-            continue
-        result = apt_remove([name], purge=True)
-    
-    # Run autoremove
+        remove_single_package(pkg)
+
     run_sudo_command(["apt", "autoremove", "-y"])
-    success("✅ All unwanted packages removed successfully.")
+    success("All unwanted packages removed.")
 
-# --- Curses Menu ---
-
-def curses_menu(stdscr, packages: list[dict]):
-    curses.curs_set(0)
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
-    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-
-    current_row = 0
-    menu_items = [{"name": "__ALL__", "description": "Remove ALL unwanted packages"}] + packages
-
-    while True:
-        stdscr.clear()
-        stdscr.attron(curses.color_pair(2))
-        stdscr.addstr(0, 0, "MintyForge - APT Remover")
-        stdscr.attroff(curses.color_pair(2))
-        stdscr.addstr(1, 0, "Navigate ↑/↓ | ENTER to remove | q to quit")
-        stdscr.addstr(2, 0, "─" * 80)
-
-        for idx, item in enumerate(menu_items):
-            name = item.get("name", "Unknown")
-            desc = item.get("description", "")
-            label = f"👉 {desc}" if name == "__ALL__" else f"{name} - {desc}"
-
-            if idx == current_row:
-                stdscr.attron(curses.color_pair(1))
-                stdscr.addstr(idx + 4, 2, label)
-                stdscr.attroff(curses.color_pair(1))
-            else:
-                stdscr.addstr(idx + 4, 2, label)
-
-        key = stdscr.getch()
-        if key == curses.KEY_UP and current_row > 0:
-            current_row -= 1
-        elif key == curses.KEY_DOWN and current_row < len(menu_items) - 1:
-            current_row += 1
-        elif key in (10, 13):  # Enter
-            selected = menu_items[current_row]
-            # Quit curses before executing commands
-            curses.endwin()
-            os.system("clear")
-            print(f"\n=== Removing: {selected.get('description', selected.get('name'))} ===\n")
-
-            if selected["name"] == "__ALL__":
-                remove_all_packages(packages)
-            else:
-                remove_single_package(selected)
-
-            print("\nPress ENTER to return to the menu...")
-            input()
-            os.system("clear")
-
-            # relancer le menu sans réinitialiser curses.wrapper
-            curses.curs_set(0)
-            stdscr.clear()
-            continue
-        elif key in [ord("q"), ord("Q")]:
-            break
-
-        stdscr.refresh()
-
-# --- Main ---
 
 def main():
     if not CONFIG_FILE.exists():
@@ -139,9 +80,8 @@ def main():
         warn("No packages found in config.")
         return
 
-    info("Launching MintyForge APT Remover...")
-    curses.wrapper(lambda s: curses_menu(s, packages))
-    success("MintyForge APT Remover exited cleanly.")
+    remove_all_packages(packages)
+
 
 if __name__ == "__main__":
     main()

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils import (
     validate_install_config,
@@ -20,7 +20,6 @@ from utils import (
     validate_flatpak_config,
     validate_external_config,
     validate_theme_config,
-    validate_kvantum_config,
     validate_all_configs,
     ConfigValidationError,
     load_package_list,
