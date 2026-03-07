@@ -48,13 +48,14 @@ PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
 ok "Python $PYTHON_VERSION"
 
 # =============================================================
-# 2. Verifier/installer python3-venv
+# 2. Verifier/installer python3-venv (avec ensurepip)
 # =============================================================
-if ! python3 -c "import venv" 2>/dev/null; then
-    warn "Module venv absent, installation..."
+if ! python3 -c "import ensurepip" 2>/dev/null; then
+    warn "Module ensurepip absent, installation du paquet venv..."
+    PYTHON_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
     sudo apt update -qq
-    sudo apt install -y python3-venv
-    ok "python3-venv installe"
+    sudo apt install -y "python3.${PYTHON_MINOR}-venv"
+    ok "python3.${PYTHON_MINOR}-venv installe"
 fi
 
 # =============================================================
