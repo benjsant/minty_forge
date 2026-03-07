@@ -1,201 +1,182 @@
-# 🛠️ MintyForge
+# MintyForge
 
-![minty_forge_icons](data/background.png)
-**MintyForge** est un utilitaire d'automatisation pour Linux Mint (Cinnamon) — un petit "forge" personnel qui propose un menu interactif (curses) pour :
-
-- installer une liste de paquets APT (ou tous d'un coup),
-- supprimer des paquets indésirables,
-- installer des Flatpaks,
-- installer et configurer thèmes utilisateur (GTK / icônes / curseurs) via JSON,
-- configurer Qt (kvantum / qt5ct / qt6ct),
-- lancer `mintdrivers`,
-- cloner/exécuter **Distroscript**,
-- installer paquets externes (VirtualBox, Distrobox, Podman, etc.) via `external_packages.json`.
-
-Le projet vise l'automatisation reproductible pour configurer rapidement une machine Mint.
-
----
-
-## Sommaire
-
-- [Prérequis](#prérequis)  
-- [Arborescence du projet](#arborescence-du-projet)  
-- [Installation & exécution](#installation--exécution)  
-- [Fichiers de configuration (JSON / templates)](#fichiers-de-configuration-json--templates)  
-- [Comportement des scripts principaux](#comportement-des-scripts-principaux)  
-- [Détails techniques importants](#détails-techniques-importants)  
-- [Dépannage & logs](#dépannage--logs)  
-- [Sécurité & bonnes pratiques](#sécurité--bonnes-pratiques)  
-- [Contribution](#contribution)  
-- [Licence](#licence)
+Utilitaire de post-installation pour **Linux Mint (Cinnamon)**. Configure rapidement une machine de façon reproductible via une interface web locale.
 
 ---
 
 ## Prérequis
 
-- Système : **Linux Mint 22+ (Cinnamon)** ou distribution basée sur Ubuntu 24.04+
-- Python 3.12+ (fourni par défaut avec Mint 22)
-- `python3-venv` pour le virtual environment
-- `git`, `curl`, `gpg`, `bash`, `sudo`
-- Pour certaines actions : `crudini`, `dconf`, `gsettings` (installés par défaut sur Mint)
-- Accès `sudo` pour les actions système (installation APT, copy dans `/usr/share`, modification de `/etc`)
-
-**Note :** Le script `setup.sh` installe automatiquement `python3-venv` si nécessaire.
+- Linux Mint 21+ / Ubuntu 22.04+ avec Cinnamon
+- Python 3.10+ — `python3 --version`
+- `python3-venv` — `sudo apt install python3-venv`
+- Accès `sudo`
+- `dconf` et `gsettings` (présents par défaut sur Mint)
+- `flatpak` et `git` (optionnels, pour Flatpaks et thèmes)
 
 ---
 
-## Arborescence du projet (exemple)
+## Lancement
+
+```bash
+git clone https://github.com/ton-compte/minty_forge.git
+cd minty_forge
+chmod +x mintyforge.sh
+./mintyforge.sh
+```
+
+Le script vérifie Python, crée le virtualenv, installe Flask et Pydantic, demande le mot de passe `sudo`, désactive la mise en veille, puis ouvre automatiquement `http://localhost:5000`.
+
+**Arrêt :** `CTRL+C`
+
+---
+
+## Fonctionnalités
+
+### Profils d'installation
+
+Sélectionnez un ou plusieurs profils, lancez un **dry-run** pour prévisualiser ce qui sera installé, puis installez en un clic.
+
+| Profil | Contenu |
+|---|---|
+| **Base** | Outils essentiels, polices, codecs |
+| **Office** | LibreOffice, Thunderbird, outils bureautiques |
+| **Dev** | Python, Node.js, Podman, outils CLI |
+| **Gaming** | Steam, Lutris, GameMode, Vulkan |
+| **Multimedia** | VLC, Kdenlive, GIMP, Audacity |
+| **Docker** | Docker Engine + Docker Compose |
+| **AMD** | Pilotes Mesa, ROCm, outils AMD |
+| **NVIDIA** | Pilotes propriétaires NVIDIA |
+| **Privacy** | KeePassXC, outils VPN, Firejail |
+| **System** | Outils système, monitoring, réseau |
+
+### Paramètres dconf
+
+Interface graphique pour configurer les thèmes GTK/icônes/curseurs, le mode clair/sombre, les espaces de travail, la lumière nocturne, le screensaver et les icônes du bureau — appliqués directement via `gsettings`.
+
+### Historique et rollback
+
+Chaque action installée est enregistrée dans `data/state.json`. Annulez la dernière action ou toutes les actions depuis l'interface.
+
+---
+
+## Structure du projet
 
 ```
 minty_forge/
-├── README.md
-├── minty_forge.py                # script principal (menu curses)
-├── scripts/
+├── mintyforge.sh           # Lancement tout-en-un (venv + sudo + veille)
+├── minty_forge.py          # Vérification de l'environnement + lanceur Flask
+├── web_app.py              # Application Flask (enregistre les blueprints)
+├── routes/
+│   ├── shared.py           # État partagé : logs, task lock, run_script()
+│   ├── legacy.py           # /api/status, /api/logs, /api/execute
+│   ├── profiles.py         # /api/profiles — installation par profil
+│   ├── dconf.py            # /api/dconf — paramètres Cinnamon/GNOME
+│   └── state_routes.py     # /api/state — historique + rollback
+├── utils/
+│   ├── state_manager.py    # Persistance des actions + rollback
+│   ├── theme_manager.py    # Détection et installation de thèmes
+│   ├── profile_loader.py   # Chargement des profils JSON
+│   ├── subprocess_utils.py # Exécution sécurisée de commandes
+│   ├── file_utils.py       # JSON et gestion de fichiers
+│   └── validation.py       # Validation Pydantic des configs
+├── schemas/                # Modèles Pydantic (packages, profils, thèmes...)
+├── scripts/                # Scripts exécutés en tâche de fond
 │   ├── apt_install.py
 │   ├── apt_remove.py
 │   ├── flatpak_install.py
 │   ├── themes_install.py
-│   ├── qt_install.py
-│   ├── drivers (shell)
+│   ├── external_install.py
+│   ├── drivers.py
 │   ├── distroscript_install.py
-│   └── external_install.py
+│   └── profile_install.py
 ├── configs/
-│   ├── install.json              # liste APT à installer
-│   ├── remove.json               # liste APT à supprimer
-│   ├── flatpak.json              # liste Flatpaks
-│   ├── themes_gtk.json
-│   ├── themes_icons.json
-│   ├── themes_cursors.json
-│   ├── dconf_base                # snapshot dconf de base (template)
-│   └── slick-greeter.conf        # template facultatif pour lightdm greeter
-├── themes/                       # clonage local des themes GTK
-├── icons/                        # clonage local des icon themes
-├── cursors/                      # clonage local des cursor themes
+│   ├── profiles/           # Profils d'installation (*.json)
+│   ├── dconf_base          # Snapshot dconf de référence
+│   ├── install.json        # Paquets APT
+│   ├── remove.json         # Paquets à supprimer
+│   ├── flatpak.json        # Flatpaks
+│   ├── external_packages.json
+│   └── themes_gtk.json / themes_icons.json / themes_cursors.json
+├── web/
+│   └── templates/
+│       └── index.html      # Interface utilisateur
+├── data/
+│   └── state.json          # Historique des actions (créé automatiquement)
 └── logs/
-    └── mintyforge.log            # logs d'exécution
+    └── mintyforge.log
 ```
 
 ---
 
-## Installation & exécution
+## Ajouter un profil personnalisé
 
-### 🌐 **Interface Web (Recommandée)**
+Créez `configs/profiles/mon_profil.json` :
 
-1. **Cloner le repo**
-
-```bash
-git clone https://github.com/<ton-compte>/minty_forge.git
-cd minty_forge
+```json
+{
+  "name": "Mon Profil",
+  "description": "Description courte",
+  "icon": "wrench",
+  "apt": [
+    { "name": "nom-paquet", "description": "Description" }
+  ],
+  "flatpak": [
+    { "app": "com.example.App", "description": "Description" }
+  ],
+  "external": [
+    { "name": "MonLogiciel", "description": "Description", "cmd": "commande d'installation" }
+  ],
+  "remove": [
+    { "name": "paquet-a-supprimer", "description": "Description" }
+  ]
+}
 ```
 
-2. **Installer et configurer (une seule fois)**
+Icônes disponibles : `box` `wrench` `gamepad` `cpu` `gpu` `code` `film` `shield` `server` `docker` `office`
 
-```bash
-chmod +x setup.sh start.sh
-./setup.sh
-```
-
-Le script va :
-- Vérifier Python 3.12+
-- Créer un virtual environment (.venv)
-- Installer Flask et les dépendances
-- Tout configurer automatiquement
-
-3. **Lancer MintyForge**
-
-```bash
-./start.sh
-```
-
-4. **Ouvrir dans votre navigateur**
-
-```
-http://localhost:5000
-```
-
-**Fonctionnalités web :**
-- ✅ Interface moderne et responsive
-- ✅ Gros bouton "TOUT INSTALLER"
-- ✅ Actions individuelles (APT, Flatpak, Thèmes...)
-- ✅ Logs en temps réel
-- ✅ Barres de progression
-- ✅ Accessible depuis le réseau local
-
-Voir [INSTALL_WEB.md](INSTALL_WEB.md) pour plus de détails.
+Le profil apparaît automatiquement sans redémarrer le serveur (cache 60s).
 
 ---
 
-## Fichiers de configuration (exemples & format)
+## API
 
-Tous les fichiers JSON sont stockés dans `configs/`. Les scripts les lisent pour déterminer les actions.
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/api/status` | État système (internet, sudo, outils) |
+| GET | `/api/logs/stream` | Logs en temps réel (SSE) |
+| POST | `/api/execute/<action>` | Lancer une action (apt_install, flatpak_install...) |
+| POST | `/api/execute/all` | Tout installer en séquence |
+| GET | `/api/profiles` | Liste des profils disponibles |
+| POST | `/api/profiles/install` | Installer des profils |
+| POST | `/api/profiles/dry-run` | Prévisualiser une installation |
+| GET | `/api/dconf/options` | Thèmes et paramètres actuels |
+| POST | `/api/dconf/apply` | Appliquer des paramètres dconf |
+| GET | `/api/state` | Historique des actions |
+| POST | `/api/state/rollback/last` | Annuler la dernière action |
+| POST | `/api/state/rollback/all` | Annuler toutes les actions |
 
-### `configs/install.json` (APT install)
+---
 
-```json
-{
-  "packages": [
-    { "name": "build-essential", "description": "Essential compilation tools" },
-    { "name": "git", "description": "Version control" },
-    { "name": "curl", "description": "Downloader" },
-    { "name": "wget", "description": "Downloader" }
-  ]
-}
+## Tests
+
+```bash
+source .venv/bin/activate
+python tests/test_state_manager.py
+python tests/test_utils.py
+python tests/test_validation.py
+python tests/test_security.py
+python tests/test_theme_manager.py
 ```
 
-### `configs/remove.json`
+---
 
-```json
-{
-  "packages": [
-    { "name": "mintwelcome", "description": "Linux Mint welcome" },
-    { "name": "transmission-*", "description": "Transmission client" }
-  ]
-}
-```
+## Dépendances Python
 
-### `configs/flatpak.json`
-
-```json
-{
-  "flatpaks": [
-    { "source": "flathub", "app": "com.github.tchx84.Flatseal", "description": "Permission manager" }
-  ]
-}
-```
-
-### `configs/themes_gtk.json`
-
-```json
-{
-  "themes": [
-    {
-      "name": "Qogir-Dark",
-      "name_to_use": "Qogir-Dark",
-      "url": "https://github.com/vinceliuice/Qogir-theme.git",
-      "cmd_user": "bash install.sh -d ~/.themes -c dark",
-      "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
-      "description": "Qogir dark GTK theme"
-    }
-  ]
-}
-```
-
-### `configs/external_packages.json`
-
-```json
-{
-  "external_packages": [
-    {
-      "name": "VirtualBox 7.1",
-      "description": "Oracle VirtualBox via repo Oracle",
-      "cmd": "sudo bash -c 'wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg && . /etc/os-release && CODENAME=${UBUNTU_CODENAME:-$VERSION_CODENAME} && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] http://download.virtualbox.org/virtualbox/debian ${CODENAME} contrib" > /etc/apt/sources.list.d/virtualbox.list && apt update && apt install -y virtualbox-7.1 && usermod -aG vboxusers $SUDO_USER'"
-    }
-  ]
-}
-```
+- [Flask](https://flask.palletsprojects.com/) >= 3.0
+- [Pydantic](https://docs.pydantic.dev/) >= 2.0
 
 ---
 
 ## Licence
 
-Ce projet est sous **MIT License**.
+MIT

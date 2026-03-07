@@ -1,6 +1,7 @@
 """Routes legacy : status, logs, execute, theme."""
 import json
 import queue
+import shutil
 import socket
 import subprocess
 import threading
@@ -14,13 +15,20 @@ from utils.theme_manager import ThemeManager
 from routes.shared import (
     log_info, log_success, log_warn, log_error,
     log_queue, current_task, task_lock,
-    update_task_status, run_script
+    update_task_status, run_script, cancel_current_task
 )
 
 bp = Blueprint("legacy", __name__)
 
 _status_cache = {"data": None, "ts": 0}
 STATUS_CACHE_TTL = 8
+
+
+def _tool_available(name):
+    try:
+        return subprocess.run(["which", name], capture_output=True).returncode == 0
+    except Exception:
+        return False
 
 
 def _check_system():
@@ -35,6 +43,11 @@ def _check_system():
         checks["sudo"] = r.returncode == 0
     except Exception:
         pass
+    checks["tools"] = {
+        t: _tool_available(t)
+        for t in ("dconf", "gsettings", "apt", "flatpak", "git")
+    }
+    checks["disk_free_gb"] = round(shutil.disk_usage("/").free / (1024 ** 3), 1)
     return checks
 
 
@@ -78,6 +91,27 @@ def status():
     _status_cache["data"] = data
     _status_cache["ts"] = now
     return jsonify(data)
+
+
+@bp.route('/api/task/cancel', methods=['POST'])
+def cancel_task():
+    if cancel_current_task():
+        update_task_status("Annule", False, 0)
+        log_warn("Tache annulee par l'utilisateur.")
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Aucune tache en cours"}), 409
+
+
+@bp.route('/api/logs/history')
+def logs_history():
+    try:
+        log_file = Path("logs/mintyforge.log")
+        if not log_file.exists():
+            return jsonify({"lines": []})
+        lines = log_file.read_text(errors="replace").splitlines()
+        return jsonify({"lines": lines[-300:]})
+    except Exception:
+        return jsonify({"lines": []})
 
 
 @bp.route('/api/logs/stream')

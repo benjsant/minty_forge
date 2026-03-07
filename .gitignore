@@ -61,8 +61,13 @@ ehthumbs.db
 # Generated dconf files (user-specific)
 configs/dconf_custom.dconf
 
+# Themes clones localement (crees a la demande par themes_install.py)
+themes/
+icons/
+cursors/
+
 # State manager data (user-specific)
-data/state.json
+data/
 
 # Generated installer logs or temp files
 logs/

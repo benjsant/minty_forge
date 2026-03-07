@@ -11,6 +11,9 @@ log_queue = queue.Queue(maxsize=1000)
 current_task = {"running": False, "name": "", "progress": 0}
 task_lock = threading.Lock()
 
+_current_process = None
+_process_lock = threading.Lock()
+
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -37,11 +40,42 @@ def log_warn(msg):    logger.warning(f"⚠️ {msg}")
 def log_error(msg):   logger.error(f"❌ {msg}")
 
 
+def notify_desktop(title, message=""):
+    """Envoie une notification bureau via notify-send (silencieux si absent)."""
+    try:
+        subprocess.run(
+            ["notify-send", "-a", "MintyForge", "-i", "dialog-information", title, message],
+            capture_output=True, timeout=3
+        )
+    except Exception:
+        pass
+
+
 def update_task_status(name, running, progress=0):
     with task_lock:
+        was_running = current_task["running"]
         current_task["name"] = name
         current_task["running"] = running
         current_task["progress"] = progress
+    if was_running and not running and progress == 100:
+        notify_desktop("Termine", name)
+
+
+def set_current_process(proc):
+    global _current_process
+    with _process_lock:
+        _current_process = proc
+
+
+def cancel_current_task():
+    """Tue le processus en cours. Retourne True si un processus a ete tue."""
+    global _current_process
+    with _process_lock:
+        if _current_process and _current_process.poll() is None:
+            _current_process.kill()
+            _current_process = None
+            return True
+        return False
 
 
 def run_script(script_name):
@@ -59,21 +93,28 @@ def run_script(script_name):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1, env=env
         )
+        set_current_process(process)
         for line in process.stdout:
             line = line.rstrip('\n')
             if line.strip():
                 log_info(line)
         process.wait(timeout=1800)
+        set_current_process(None)
         if process.returncode == 0:
             log_success(f"Termine : {script_name}")
             return True
+        if process.returncode is not None and process.returncode < 0:
+            log_warn(f"Annule : {script_name}")
+            return False
         log_error(f"Echec : {script_name} (code {process.returncode})")
         return False
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
+        set_current_process(None)
         log_error(f"Timeout : {script_name} (>30 min)")
         return False
     except Exception as e:
+        set_current_process(None)
         log_error(f"Erreur {script_name} : {e}")
         return False

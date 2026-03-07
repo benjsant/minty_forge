@@ -1,37 +1,83 @@
-"""Routes /api/dconf."""
+"""Routes /api/dconf - parametres bureau via gsettings."""
 import subprocess
 import threading
-from pathlib import Path
-
 from flask import Blueprint, jsonify, request, Response
 
 from utils.theme_manager import ThemeManager
 from routes.shared import (
-    log_info, log_success, log_error,
+    log_info, log_success, log_warn, log_error,
     current_task, task_lock, update_task_status
 )
 
 bp = Blueprint("dconf", __name__)
 
+# Chaque cle de formulaire -> liste de (schema, gsettings_key)
+# Certains parametres doivent etre appliques sur plusieurs schemas (cinnamon + gnome)
+_SETTINGS_MAP = {
+    "gtk_theme": [
+        ("org.cinnamon.desktop.interface", "gtk-theme"),
+        ("org.gnome.desktop.interface",    "gtk-theme"),
+    ],
+    "icon_theme": [
+        ("org.cinnamon.desktop.interface", "icon-theme"),
+        ("org.gnome.desktop.interface",    "icon-theme"),
+    ],
+    "cursor_theme": [
+        ("org.cinnamon.desktop.interface", "cursor-theme"),
+        ("org.gnome.desktop.interface",    "cursor-theme"),
+    ],
+    "cinnamon_theme":         [("org.cinnamon.theme",                          "name")],
+    "wm_theme":               [("org.gnome.desktop.wm.preferences",            "theme")],
+    "font_name":              [("org.gnome.desktop.interface",                  "font-name")],
+    "titlebar_font":          [("org.gnome.desktop.wm.preferences",            "titlebar-font")],
+    "button_layout":          [("org.gnome.desktop.wm.preferences",            "button-layout")],
+    "num_workspaces":         [("org.gnome.desktop.wm.preferences",            "num-workspaces")],
+    "night_light_enabled":    [("org.cinnamon.settings-daemon.plugins.color",  "night-light-enabled")],
+    "night_light_temp":       [("org.cinnamon.settings-daemon.plugins.color",  "night-light-temperature")],
+    "lock_enabled":           [("org.cinnamon.desktop.screensaver",            "lock-enabled")],
+    "event_sounds": [
+        ("org.cinnamon.desktop.sound", "event-sounds"),
+        ("org.gnome.desktop.sound",    "event-sounds"),
+    ],
+    "show_hidden_files":      [("org.nemo.preferences", "show-hidden-files")],
+    "desktop_icons_home":     [("org.nemo.desktop",     "home-icon-visible")],
+    "desktop_icons_trash":    [("org.nemo.desktop",     "trash-icon-visible")],
+    "desktop_icons_computer": [("org.nemo.desktop",     "computer-icon-visible")],
+    # Veille et ecran — directement via gsettings, pas besoin de dconf
+    "sleep_ac_timeout":  [("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-ac-timeout")],
+    "sleep_bat_timeout": [("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout")],
+    "screensaver_active":[("org.cinnamon.desktop.screensaver",            "idle-activation-enabled")],
+    "color_scheme":      [("org.gnome.desktop.interface",                  "color-scheme")],
+}
+
 
 def _gs_get(schema, key):
     try:
-        r = subprocess.run(["gsettings", "get", schema, key], capture_output=True, text=True, timeout=3)
+        r = subprocess.run(["gsettings", "get", schema, key],
+                           capture_output=True, text=True, timeout=3)
         return r.stdout.strip().strip("'") if r.returncode == 0 else ""
     except Exception:
         return ""
 
 
-def _validate_settings(settings):
-    """Validation basique des settings dconf. Retourne (settings_nettoyes, erreur_ou_None)."""
+def _gs_set(schema, key, value):
     try:
-        if "num_workspaces" in settings:
+        r = subprocess.run(["gsettings", "set", schema, key, str(value)],
+                           capture_output=True, text=True, timeout=5)
+        return r.returncode == 0, r.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+
+def _validate_settings(settings):
+    if "num_workspaces" in settings:
+        try:
             n = int(settings["num_workspaces"])
             if not 1 <= n <= 12:
                 return None, "num_workspaces doit etre entre 1 et 12"
             settings["num_workspaces"] = str(n)
-    except (ValueError, TypeError):
-        return None, "num_workspaces invalide"
+        except (ValueError, TypeError):
+            return None, "num_workspaces invalide"
 
     if "night_light_temp" in settings and settings["night_light_temp"]:
         try:
@@ -46,54 +92,11 @@ def _validate_settings(settings):
     if settings.get("button_layout") and settings["button_layout"] not in allowed_layouts:
         return None, "button_layout invalide"
 
+    allowed_schemes = {"default", "prefer-dark"}
+    if settings.get("color_scheme") and settings["color_scheme"] not in allowed_schemes:
+        return None, "color_scheme invalide (valeurs: default, prefer-dark)"
+
     return settings, None
-
-
-def _build_changes(settings):
-    """Construit le dict {section: {key: value}} depuis les settings du formulaire."""
-    changes = {}
-
-    def put(section, key, val):
-        changes.setdefault(section, {})[key] = val
-
-    for setting, dconf_key in [("gtk_theme", "gtk-theme"), ("icon_theme", "icon-theme"), ("cursor_theme", "cursor-theme")]:
-        if settings.get(setting):
-            v = f"'{settings[setting]}'"
-            put("[org/cinnamon/desktop/interface]", dconf_key, v)
-            put("[org/gnome/desktop/interface]", dconf_key, v)
-
-    if settings.get("cinnamon_theme"):
-        put("[org/cinnamon/theme]", "name", f"'{settings['cinnamon_theme']}'")
-    if settings.get("wm_theme"):
-        put("[org/gnome/desktop/wm/preferences]", "theme", f"'{settings['wm_theme']}'")
-    if settings.get("font_name"):
-        put("[org/gnome/desktop/interface]", "font-name", f"'{settings['font_name']}'")
-    if settings.get("titlebar_font"):
-        put("[org/gnome/desktop/wm/preferences]", "titlebar-font", f"'{settings['titlebar_font']}'")
-    if settings.get("num_workspaces"):
-        put("[org/gnome/desktop/wm/preferences]", "num-workspaces", settings["num_workspaces"])
-    if settings.get("button_layout"):
-        put("[org/gnome/desktop/wm/preferences]", "button-layout", f"'{settings['button_layout']}'")
-
-    if "night_light_enabled" in settings:
-        put("[org/cinnamon/settings-daemon/plugins/color]", "night-light-enabled", "true" if settings["night_light_enabled"] else "false")
-    if settings.get("night_light_temp"):
-        put("[org/cinnamon/settings-daemon/plugins/color]", "night-light-temperature", f"uint32 {settings['night_light_temp']}")
-
-    if "lock_enabled" in settings:
-        put("[org/cinnamon/desktop/screensaver]", "lock-enabled", "true" if settings["lock_enabled"] else "false")
-    if "event_sounds" in settings:
-        val = "true" if settings["event_sounds"] else "false"
-        put("[org/cinnamon/desktop/sound]", "event-sounds", val)
-        put("[org/gnome/desktop/sound]", "event-sounds", val)
-    if "show_hidden_files" in settings:
-        put("[org/nemo/preferences]", "show-hidden-files", "true" if settings["show_hidden_files"] else "false")
-
-    for key in ("home", "trash", "computer"):
-        if f"desktop_icons_{key}" in settings:
-            put("[org/nemo/desktop]", f"{key}-icon-visible", "true" if settings[f"desktop_icons_{key}"] else "false")
-
-    return changes
 
 
 @bp.route('/api/dconf/options')
@@ -101,29 +104,33 @@ def dconf_options():
     try:
         tm = ThemeManager()
         current = {
-            "gtk_theme":            _gs_get("org.cinnamon.desktop.interface", "gtk-theme"),
-            "icon_theme":           _gs_get("org.cinnamon.desktop.interface", "icon-theme"),
-            "cursor_theme":         _gs_get("org.cinnamon.desktop.interface", "cursor-theme"),
-            "cinnamon_theme":       _gs_get("org.cinnamon.theme", "name"),
-            "wm_theme":             _gs_get("org.gnome.desktop.wm.preferences", "theme"),
-            "font_name":            _gs_get("org.gnome.desktop.interface", "font-name"),
-            "titlebar_font":        _gs_get("org.gnome.desktop.wm.preferences", "titlebar-font"),
-            "num_workspaces":       _gs_get("org.gnome.desktop.wm.preferences", "num-workspaces"),
-            "button_layout":        _gs_get("org.gnome.desktop.wm.preferences", "button-layout"),
-            "night_light_enabled":  _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-enabled"),
-            "night_light_temp":     _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-temperature"),
-            "lock_enabled":         _gs_get("org.cinnamon.desktop.screensaver", "lock-enabled"),
-            "event_sounds":         _gs_get("org.cinnamon.desktop.sound", "event-sounds"),
-            "show_hidden_files":    _gs_get("org.nemo.preferences", "show-hidden-files"),
-            "desktop_icons_home":   _gs_get("org.nemo.desktop", "home-icon-visible"),
-            "desktop_icons_trash":  _gs_get("org.nemo.desktop", "trash-icon-visible"),
+            "gtk_theme":              _gs_get("org.cinnamon.desktop.interface", "gtk-theme"),
+            "icon_theme":             _gs_get("org.cinnamon.desktop.interface", "icon-theme"),
+            "cursor_theme":           _gs_get("org.cinnamon.desktop.interface", "cursor-theme"),
+            "cinnamon_theme":         _gs_get("org.cinnamon.theme", "name"),
+            "wm_theme":               _gs_get("org.gnome.desktop.wm.preferences", "theme"),
+            "font_name":              _gs_get("org.gnome.desktop.interface", "font-name"),
+            "titlebar_font":          _gs_get("org.gnome.desktop.wm.preferences", "titlebar-font"),
+            "num_workspaces":         _gs_get("org.gnome.desktop.wm.preferences", "num-workspaces"),
+            "button_layout":          _gs_get("org.gnome.desktop.wm.preferences", "button-layout"),
+            "night_light_enabled":    _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-enabled"),
+            "night_light_temp":       _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-temperature"),
+            "lock_enabled":           _gs_get("org.cinnamon.desktop.screensaver", "lock-enabled"),
+            "event_sounds":           _gs_get("org.cinnamon.desktop.sound", "event-sounds"),
+            "show_hidden_files":      _gs_get("org.nemo.preferences", "show-hidden-files"),
+            "desktop_icons_home":     _gs_get("org.nemo.desktop", "home-icon-visible"),
+            "desktop_icons_trash":    _gs_get("org.nemo.desktop", "trash-icon-visible"),
             "desktop_icons_computer": _gs_get("org.nemo.desktop", "computer-icon-visible"),
+            "sleep_ac_timeout":       _gs_get("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-ac-timeout"),
+            "sleep_bat_timeout":      _gs_get("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout"),
+            "screensaver_active":     _gs_get("org.cinnamon.desktop.screensaver", "idle-activation-enabled"),
+            "color_scheme":           _gs_get("org.gnome.desktop.interface", "color-scheme"),
         }
         return jsonify({
             "success": True,
             "themes": {
-                "gtk": tm.list_available_themes("gtk"),
-                "icon": tm.list_available_themes("icon"),
+                "gtk":    tm.list_available_themes("gtk"),
+                "icon":   tm.list_available_themes("icon"),
                 "cursor": tm.list_available_themes("cursor"),
             },
             "current": current,
@@ -133,7 +140,7 @@ def dconf_options():
 
 
 @bp.route('/api/dconf/apply', methods=['POST'])
-def apply_dconf_custom():
+def apply_settings():
     data = request.get_json(silent=True) or {}
     settings, err = _validate_settings(data.get("settings", {}))
     if err:
@@ -142,81 +149,51 @@ def apply_dconf_custom():
     with task_lock:
         if current_task["running"]:
             return jsonify({"success": False, "error": "Tache en cours"}), 409
-        current_task.update(running=True, name="Dconf custom", progress=0)
+        current_task.update(running=True, name="Parametres bureau", progress=0)
 
     def run():
+        applied, errors = 0, []
         try:
-            log_info("Generation de la config dconf...")
-            update_task_status("Dconf custom", True, 10)
-
-            base_path = Path("configs/dconf_base")
-            if not base_path.exists():
-                log_error("configs/dconf_base introuvable")
-                update_task_status("Dconf echoue", False, 0)
-                return
-
-            changes = _build_changes(settings)
-            lines = base_path.read_text().splitlines()
-            output = []
-            section = ""
-
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("[") and stripped.endswith("]"):
-                    section = stripped
-                    output.append(line)
-                elif "=" in stripped and section in changes:
-                    key = stripped.split("=", 1)[0].strip()
-                    if key in changes[section]:
-                        output.append(f"{key}={changes[section].pop(key)}")
-                    else:
-                        output.append(line)
+            entries = [
+                (schema, key, settings[form_key])
+                for form_key, targets in _SETTINGS_MAP.items()
+                if form_key in settings and settings[form_key] != ""
+                for schema, key in targets
+            ]
+            total = max(len(entries), 1)
+            for i, (schema, key, value) in enumerate(entries):
+                ok, err_msg = _gs_set(schema, key, value)
+                update_task_status("Parametres bureau", True, 10 + int((i / total) * 85))
+                if ok:
+                    log_info(f"gsettings: {key} = {value}")
+                    applied += 1
                 else:
-                    output.append(line)
+                    log_warn(f"Echec gsettings {key}: {err_msg}")
+                    errors.append(f"{key}: {err_msg}")
 
-            for sec, keys in changes.items():
-                if not keys:
-                    continue
-                output.append("")
-                output.append(sec)
-                for k, v in keys.items():
-                    output.append(f"{k}={v}")
-
-            update_task_status("Dconf custom", True, 60)
-
-            dconf_content = "\n".join(output) + "\n"
-            Path("configs/dconf_custom.dconf").write_text(dconf_content)
-
-            update_task_status("Dconf custom", True, 80)
-
-            # Stdin direct, pas besoin de bash ni de fichier tmp
-            result = subprocess.run(
-                ["dconf", "load", "/"],
-                input=dconf_content,
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                log_success("Config dconf appliquee")
-                update_task_status("Dconf applique", False, 100)
+            if errors:
+                log_warn(f"{applied} parametres appliques, {len(errors)} erreur(s)")
+                update_task_status("Termine avec avertissements", False, 100)
             else:
-                log_error(f"dconf load echoue : {result.stderr}")
-                update_task_status("Dconf echoue", False, 100)
+                log_success(f"{applied} parametres appliques")
+                update_task_status("Parametres appliques", False, 100)
 
         except Exception as e:
-            log_error(f"Erreur dconf : {e}")
-            update_task_status("Dconf echoue", False, 0)
+            log_error(f"Erreur application parametres : {e}")
+            update_task_status("Erreur parametres", False, 0)
 
     threading.Thread(target=run, daemon=True).start()
-    return jsonify({"success": True, "message": "Application dconf lancee"})
+    return jsonify({"success": True, "message": "Application des parametres lancee"})
 
 
 @bp.route('/api/dconf/export')
 def export_dconf():
+    """Export complet de la config dconf (backup uniquement)."""
     try:
         r = subprocess.run(["dconf", "dump", "/"], capture_output=True, text=True, timeout=10)
         if r.returncode != 0:
             return jsonify({"success": False, "error": "dconf dump echoue"}), 500
         return Response(r.stdout, mimetype='text/plain',
-                       headers={"Content-Disposition": "attachment; filename=dconf_export.dconf"})
+                        headers={"Content-Disposition": "attachment; filename=dconf_backup.dconf"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

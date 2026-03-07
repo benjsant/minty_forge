@@ -102,6 +102,15 @@ if ! sudo -v; then
 fi
 ok "Acces sudo"
 
+# Configurer sudoers pour ufw sans mot de passe (si pas deja fait)
+SUDOERS_FILE="/etc/sudoers.d/mintyforge-ufw"
+if [ ! -f "$SUDOERS_FILE" ]; then
+    info "Configuration sudo pour le pare-feu (ufw)..."
+    echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/ufw" | sudo tee "$SUDOERS_FILE" > /dev/null
+    sudo chmod 440 "$SUDOERS_FILE"
+    ok "Pare-feu configure (sudo ufw sans mot de passe)"
+fi
+
 # Garder sudo actif en arriere-plan (renouvelle toutes les 50s)
 (while true; do sudo -n true 2>/dev/null; sleep 50; done) &
 SUDO_KEEPER_PID=$!

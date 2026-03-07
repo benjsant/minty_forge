@@ -4,7 +4,7 @@
 
 from flask import Flask, render_template
 
-from routes import legacy, profiles, dconf, state_routes
+from routes import legacy, profiles, dconf, state_routes, system
 from routes.shared import log_info
 
 app = Flask(__name__,
@@ -16,6 +16,7 @@ app.register_blueprint(legacy.bp)
 app.register_blueprint(profiles.bp)
 app.register_blueprint(dconf.bp)
 app.register_blueprint(state_routes.bp)
+app.register_blueprint(system.bp)
 
 
 @app.route('/')
@@ -25,7 +26,7 @@ def index():
 
 def main():
     log_info("MintyForge demarre sur http://localhost:5000")
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    app.run(host='127.0.0.1', port=5000, debug=False, threaded=True)
 
 
 if __name__ == '__main__':

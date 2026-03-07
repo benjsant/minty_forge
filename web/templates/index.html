@@ -94,6 +94,17 @@
         .status-item h3 { font-size: 0.85em; color: var(--text-muted); margin-bottom: 4px; }
         .status-item .value { font-size: 1.4em; font-weight: bold; color: var(--dark); }
 
+        .tools-warning {
+            background: #fef3cd;
+            border-left: 4px solid var(--warning);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 0.9em;
+            color: #856404;
+        }
+        [data-theme="dark"] .tools-warning { background: #451a03; color: #fed7aa; }
+
         .task-bar {
             background: var(--card-bg);
             padding: 20px;
@@ -521,10 +532,22 @@
                 <h3>Themes</h3>
                 <div class="value" id="count-themes">0</div>
             </div>
+            <div class="status-item" id="status-disk">
+                <h3>Disque libre</h3>
+                <div class="value" id="disk-free">--</div>
+            </div>
         </div>
 
+        <div class="tools-warning" id="toolsWarning" style="display: none;"></div>
+
         <div class="task-bar" id="taskBar" style="display: none;">
-            <div class="task-status" id="taskStatus">Pret</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div class="task-status" id="taskStatus">Pret</div>
+                <button class="btn-small" id="btnCancelTask" onclick="cancelTask()"
+                        style="display:none; border-color: var(--danger); color: var(--danger);">
+                    Annuler
+                </button>
+            </div>
             <div class="progress-bar" id="progressBar" style="display: none;">
                 <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
             </div>
@@ -551,9 +574,9 @@
         </div>
 
         <div class="dconf-section" id="dconfSection">
-            <h2>Personnalisation Dconf</h2>
+            <h2>Parametres du bureau</h2>
             <p style="color: var(--text-muted); margin-bottom: 18px;">
-                Configurez l'apparence et les parametres du bureau. Les changements seront appliques via dconf.
+                Configurez l'apparence et les parametres du bureau. Appliques directement via gsettings.
             </p>
             <div class="dconf-grid" id="dconfGrid">
                 <div style="color: var(--text-muted);">Chargement des options...</div>
@@ -606,6 +629,21 @@
                     <button class="big-button btn-secondary" onclick="executeAction('drivers')">Drivers</button>
                 </div>
             </div>
+        </div>
+
+        <div class="history-section">
+            <h2>Pare-feu (ufw)</h2>
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                <span id="firewallStatus" style="font-weight: bold; color: var(--text-muted);">Chargement...</span>
+                <button class="btn-small" onclick="loadFirewall()">Rafraichir</button>
+                <button class="btn-small" id="btnFirewallEnable" onclick="firewallEnable()"
+                        style="border-color: var(--success); color: var(--success);">Activer</button>
+                <button class="btn-small" id="btnFirewallDisable" onclick="firewallDisable()"
+                        style="border-color: var(--danger); color: var(--danger);">Desactiver</button>
+            </div>
+            <pre id="firewallOutput"
+                 style="font-size: 0.78em; color: var(--text-muted); background: var(--light);
+                        padding: 10px; border-radius: 8px; white-space: pre-wrap; display: none;"></pre>
         </div>
 
         <div class="logs-section">
@@ -694,7 +732,9 @@
             loadProfiles();
             loadDconfOptions();
             loadHistory();
+            loadFirewall();
             connectLogs();
+            loadLogsHistory();
             setInterval(updateStatus, 5000);
         });
 
@@ -721,10 +761,24 @@
                     updateCheck('status-internet', data.checks.internet);
                     updateCheck('status-sudo', data.checks.sudo);
                     updateCheck('status-python', data.checks.python_version);
+                    const tools = data.checks.tools || {};
+                    const missing = Object.entries(tools).filter(([,ok]) => !ok).map(([t]) => t);
+                    const warn = document.getElementById('toolsWarning');
+                    if (missing.length) {
+                        warn.textContent = 'Outils manquants : ' + missing.join(', ') + ' — certaines fonctions seront indisponibles.';
+                        warn.style.display = '';
+                    } else {
+                        warn.style.display = 'none';
+                    }
                     document.getElementById('count-apt').textContent = data.packages.apt || 0;
                     document.getElementById('count-flatpak').textContent = data.packages.flatpak || 0;
                     const totalThemes = (data.packages.themes_gtk || 0) + (data.packages.themes_icons || 0) + (data.packages.themes_cursors || 0);
                     document.getElementById('count-themes').textContent = totalThemes;
+                    const disk = data.checks.disk_free_gb;
+                    document.getElementById('disk-free').textContent = disk !== undefined ? disk + ' Go' : '--';
+                    const diskItem = document.getElementById('status-disk');
+                    diskItem.classList.toggle('ok', disk > 5);
+                    diskItem.classList.toggle('error', disk !== undefined && disk <= 5);
                     updateTaskStatus(data.task);
                 })
                 .catch(err => console.error('Status error:', err));
@@ -753,8 +807,10 @@
                 progressFill.style.width = task.progress + '%';
                 progressFill.textContent = task.progress + '%';
                 document.title = '⏳ ' + task.name + ' - ' + BASE_TITLE;
+                document.getElementById('btnCancelTask').style.display = '';
                 setAllButtons(true);
             } else {
+                document.getElementById('btnCancelTask').style.display = 'none';
                 isTaskRunning = false;
                 if (task.progress === 100 && task.name) {
                     taskBar.style.display = 'block';
@@ -945,6 +1001,89 @@
             document.getElementById('advancedChevron').classList.toggle('open');
         }
 
+        // Pare-feu
+        function loadFirewall() {
+            fetch('/api/system/firewall')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('firewallStatus');
+                    const out = document.getElementById('firewallOutput');
+                    if (!data.success) {
+                        el.textContent = 'Non disponible';
+                        el.style.color = 'var(--text-muted)';
+                        return;
+                    }
+                    el.textContent = data.enabled ? 'Actif' : 'Inactif';
+                    el.style.color = data.enabled ? 'var(--success)' : 'var(--danger)';
+                    if (data.output) {
+                        out.textContent = data.output;
+                        out.style.display = 'block';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('firewallStatus').textContent = 'Non disponible';
+                });
+        }
+
+        function firewallEnable() {
+            showConfirm('Activer le pare-feu ?', 'ufw sera active avec les regles par defaut.', () => {
+                fetch('/api/system/firewall/enable', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) { loadFirewall(); showToast('Pare-feu active', 'success'); }
+                        else showToast('Erreur : ' + data.error, 'error');
+                    })
+                    .catch(err => showToast('Erreur reseau : ' + err, 'error'));
+            });
+        }
+
+        function firewallDisable() {
+            showConfirm('Desactiver le pare-feu ?', 'Le systeme ne sera plus protege par ufw.', () => {
+                fetch('/api/system/firewall/disable', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) { loadFirewall(); showToast('Pare-feu desactive', 'warning'); }
+                        else showToast('Erreur : ' + data.error, 'error');
+                    })
+                    .catch(err => showToast('Erreur reseau : ' + err, 'error'));
+            }, true);
+        }
+
+        function loadLogsHistory() {
+            fetch('/api/logs/history')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.lines || !data.lines.length) return;
+                    const container = document.getElementById('logsContainer');
+                    container.innerHTML = '';
+                    data.lines.forEach(line => {
+                        const el = document.createElement('div');
+                        el.className = 'log-line';
+                        el.textContent = line;
+                        container.appendChild(el);
+                    });
+                    container.scrollTop = container.scrollHeight;
+                })
+                .catch(() => {});
+        }
+
+        function cancelTask() {
+            showConfirm(
+                'Annuler la tache en cours ?',
+                'Le processus sera interrompu immediatement.',
+                () => {
+                    fetch('/api/task/cancel', { method: 'POST' })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) addLog('Tache annulee.');
+                            else showToast('Rien a annuler.', 'warning');
+                        })
+                        .catch(err => showToast('Erreur : ' + err, 'error'));
+                },
+                true
+            );
+        }
+
         // Logs SSE
         function connectLogs() {
             if (eventSource) eventSource.close();
@@ -998,12 +1137,22 @@
                     const grid = document.getElementById('dconfGrid');
                     grid.innerHTML = '';
 
+                    const colorSchemeOptions = ['default', 'prefer-dark'];
+                    let colorSchemeHtml = '<div class="dconf-group"><h3>Mode couleur</h3><div class="dconf-field"><label>Apparence (Light / Dark)</label><select id="dconf_color_scheme">';
+                    colorSchemeOptions.forEach(opt => {
+                        const label = opt === 'default' ? 'Clair (Light)' : 'Sombre (Dark)';
+                        const selected = data.current.color_scheme === opt ? ' selected' : '';
+                        colorSchemeHtml += `<option value="${opt}"${selected}>${label}</option>`;
+                    });
+                    colorSchemeHtml += '</select></div></div>';
+                    grid.innerHTML += colorSchemeHtml;
+
                     grid.innerHTML += buildSelectGroup('Themes', [
                         {id: 'gtk_theme', label: 'Theme GTK', options: data.themes.gtk, current: data.current.gtk_theme},
                         {id: 'icon_theme', label: 'Theme Icones', options: data.themes.icon, current: data.current.icon_theme},
                         {id: 'cursor_theme', label: 'Theme Curseur', options: data.themes.cursor, current: data.current.cursor_theme},
                         {id: 'cinnamon_theme', label: 'Theme Cinnamon (shell)', options: data.themes.gtk, current: data.current.cinnamon_theme},
-                        {id: 'wm_theme', label: 'Theme WM (titlebars)', options: data.themes.gtk, current: data.current.wm_theme},
+                        {id: 'wm_theme', label: 'Theme WM (titrebars)', options: data.themes.gtk, current: data.current.wm_theme},
                     ]);
 
                     grid.innerHTML += `
@@ -1055,6 +1204,23 @@
                         </div>
                     `;
 
+                    grid.innerHTML += `
+                        <div class="dconf-group">
+                            <h3>Veille et ecran</h3>
+                            <div class="dconf-field">
+                                <label>Veille sur secteur (s, 0 = jamais)</label>
+                                <input type="number" id="dconf_sleep_ac" min="0" step="60"
+                                       value="${data.current.sleep_ac_timeout || 0}">
+                            </div>
+                            <div class="dconf-field">
+                                <label>Veille sur batterie (s, 0 = jamais)</label>
+                                <input type="number" id="dconf_sleep_bat" min="0" step="60"
+                                       value="${data.current.sleep_bat_timeout || 0}">
+                            </div>
+                            ${buildToggle('dconf_screensaver', 'Economiseur d\'ecran actif', data.current.screensaver_active === 'true')}
+                        </div>
+                    `;
+
                     grid.querySelectorAll('select, input').forEach(el => {
                         el.addEventListener('change', updateDconfPreview);
                         el.addEventListener('input', updateDconfPreview);
@@ -1092,6 +1258,7 @@
             const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
             const chk = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
             return {
+                color_scheme: val('dconf_color_scheme'),
                 gtk_theme: val('dconf_gtk_theme'),
                 icon_theme: val('dconf_icon_theme'),
                 cursor_theme: val('dconf_cursor_theme'),
@@ -1109,6 +1276,9 @@
                 desktop_icons_home: chk('dconf_icon_home'),
                 desktop_icons_trash: chk('dconf_icon_trash'),
                 desktop_icons_computer: chk('dconf_icon_computer'),
+                sleep_ac_timeout: val('dconf_sleep_ac'),
+                sleep_bat_timeout: val('dconf_sleep_bat'),
+                screensaver_active: chk('dconf_screensaver'),
             };
         }
 
@@ -1117,6 +1287,7 @@
             const changes = [];
 
             const strFields = [
+                ['color_scheme', 'color-scheme'],
                 ['gtk_theme', 'gtk-theme'], ['icon_theme', 'icon-theme'],
                 ['cursor_theme', 'cursor-theme'], ['cinnamon_theme', 'cinnamon-theme'],
                 ['wm_theme', 'wm-theme'], ['font_name', 'font-name'],
@@ -1127,11 +1298,16 @@
             });
             if (s.num_workspaces !== (dconfCurrent.num_workspaces || '4')) changes.push('workspaces = ' + s.num_workspaces);
 
+            const numFields = [['sleep_ac_timeout', 'veille-secteur'], ['sleep_bat_timeout', 'veille-batterie']];
+            numFields.forEach(([key, label]) => {
+                if (s[key] !== (dconfCurrent[key] || '0')) changes.push(label + ' = ' + s[key] + 's');
+            });
+
             const boolFields = [
                 ['night_light_enabled', 'night-light'], ['lock_enabled', 'lock-screen'],
                 ['event_sounds', 'event-sounds'], ['show_hidden_files', 'show-hidden'],
                 ['desktop_icons_home', 'desktop-home'], ['desktop_icons_trash', 'desktop-trash'],
-                ['desktop_icons_computer', 'desktop-computer'],
+                ['desktop_icons_computer', 'desktop-computer'], ['screensaver_active', 'screensaver'],
             ];
             boolFields.forEach(([key, label]) => {
                 if (s[key] !== (dconfCurrent[key] === 'true')) changes.push(label + ' = ' + s[key]);
