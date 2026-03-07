@@ -4,7 +4,7 @@
 
 from flask import Flask, render_template
 
-from routes import legacy, profiles, dconf, state_routes, system
+from routes import legacy, profiles, dconf, state_routes, system, themes
 from routes.shared import log_info
 
 app = Flask(__name__,
@@ -17,6 +17,7 @@ app.register_blueprint(profiles.bp)
 app.register_blueprint(dconf.bp)
 app.register_blueprint(state_routes.bp)
 app.register_blueprint(system.bp)
+app.register_blueprint(themes.bp)
 
 
 @app.route('/')

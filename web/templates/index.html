@@ -573,6 +573,22 @@
             </button>
         </div>
 
+        <!-- Catalogue de themes -->
+        <div class="profiles-section" id="themeCatalogSection">
+            <div class="profiles-header">
+                <h2>Themes a installer</h2>
+                <div class="profiles-actions">
+                    <button class="btn-small" id="themeTabGtk"    onclick="switchThemeTab('gtk')"    style="border-color: var(--primary);">GTK</button>
+                    <button class="btn-small" id="themeTabIcon"   onclick="switchThemeTab('icon')">Icones</button>
+                    <button class="btn-small" id="themeTabCursor" onclick="switchThemeTab('cursor')">Curseurs</button>
+                    <button class="btn-small" onclick="loadThemeCatalog()">Rafraichir</button>
+                </div>
+            </div>
+            <div id="themeCatalogGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 10px;">
+                <div style="color: var(--text-muted);">Chargement...</div>
+            </div>
+        </div>
+
         <div class="dconf-section" id="dconfSection">
             <h2>Parametres du bureau</h2>
             <p style="color: var(--text-muted); margin-bottom: 18px;">
@@ -678,6 +694,13 @@
             <h3 id="modalTitle"></h3>
             <p class="modal-desc" id="modalDesc"></p>
             <div id="modalContent"></div>
+            <div id="modalFooter" style="display:none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-small" onclick="checkAllModalPkgs(true)">Tout cocher</button>
+                <button class="btn-small" onclick="checkAllModalPkgs(false)">Tout decocher</button>
+                <button class="install-profiles-btn" id="btnInstallCustom" style="flex: 1; padding: 12px; font-size: 0.95em;" onclick="installCustomFromModal()">
+                    Installer la selection
+                </button>
+            </div>
         </div>
     </div>
 
@@ -730,6 +753,7 @@
             loadTheme();
             updateStatus();
             loadProfiles();
+            loadThemeCatalog();
             loadDconfOptions();
             loadHistory();
             loadFirewall();
@@ -962,38 +986,10 @@
             .catch(err => showToast('Erreur reseau : ' + err, 'error'));
         }
 
-        // Profile detail modal
-        function showProfileDetail(slug) {
-            fetch('/api/profiles/' + slug)
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return;
-                    const p = data.profile;
-                    document.getElementById('modalTitle').textContent = (ICON_MAP[p.icon] || '') + ' ' + p.name;
-                    document.getElementById('modalDesc').textContent = p.description;
-
-                    let html = '';
-                    const sections = [
-                        ['apt', 'APT', 'name'],
-                        ['flatpak', 'Flatpak', 'app'],
-                        ['external', 'Externe', 'name'],
-                        ['remove', 'Suppression', 'name'],
-                    ];
-                    sections.forEach(([key, label, nameField]) => {
-                        if (!p[key].length) return;
-                        html += '<div class="pkg-section"><h4>' + label + ' (' + p[key].length + ')</h4><ul class="pkg-list">';
-                        p[key].forEach(pkg => {
-                            html += '<li><span class="pkg-name">' + pkg[nameField] + '</span><span class="pkg-desc">' + pkg.description + '</span></li>';
-                        });
-                        html += '</ul></div>';
-                    });
-
-                    document.getElementById('modalContent').innerHTML = html;
-                    document.getElementById('modalOverlay').classList.add('active');
-                });
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            document.getElementById('modalFooter').style.display = 'none';
         }
-
-        function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
         function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
 
         function toggleAdvanced() {
@@ -1127,6 +1123,179 @@
 
         // Dconf builder
         let dconfCurrent = {};
+
+        // =============================================
+        // CATALOGUE DE THEMES
+        // =============================================
+        let _themeCatalog = {};
+        let _currentThemeTab = 'gtk';
+
+        function loadThemeCatalog() {
+            document.getElementById('themeCatalogGrid').innerHTML = '<div style="color: var(--text-muted);">Chargement...</div>';
+            fetch('/api/themes/catalog')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    _themeCatalog = data.catalog;
+                    renderThemeTab(_currentThemeTab);
+                })
+                .catch(() => {
+                    document.getElementById('themeCatalogGrid').innerHTML = '<div style="color: var(--danger);">Erreur chargement catalogue</div>';
+                });
+        }
+
+        function switchThemeTab(type) {
+            _currentThemeTab = type;
+            ['gtk', 'icon', 'cursor'].forEach(t => {
+                const btn = document.getElementById('themeTab' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (btn) btn.style.borderColor = (t === type) ? 'var(--primary)' : '';
+            });
+            renderThemeTab(type);
+        }
+
+        function renderThemeTab(type) {
+            const grid = document.getElementById('themeCatalogGrid');
+            const themes = (_themeCatalog[type] || []);
+            if (!themes.length) {
+                grid.innerHTML = '<div style="color: var(--text-muted);">Aucun theme dans ce catalogue.</div>';
+                return;
+            }
+            grid.innerHTML = '';
+            themes.forEach(t => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background: var(--card-bg); border-radius: 12px; padding: 16px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 8px;';
+                const statusColor = t.installed ? 'var(--success)' : 'var(--text-muted)';
+                const statusLabel = t.installed ? 'Installe' : 'Non installe';
+                const canInstall  = t.has_url && !t.installed;
+                card.innerHTML = `
+                    <div style="font-weight: 600; font-size: 0.95em; color: var(--dark);">${esc(t.name)}</div>
+                    <div style="font-size: 0.82em; color: var(--text-muted);">${esc(t.description)}</div>
+                    <div style="font-size: 0.8em; color: ${statusColor}; font-weight: 500;">${statusLabel}</div>
+                    ${canInstall
+                        ? `<button class="btn-small" style="margin-top: auto;" onclick="installTheme('${type}', '${esc(t.name)}', this)">Installer</button>`
+                        : `<button class="btn-small" style="margin-top: auto; opacity: 0.4; cursor: not-allowed;" disabled>${t.installed ? 'Deja installe' : 'Inclus systeme'}</button>`
+                    }
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function installTheme(type, name, btn) {
+            if (isTaskRunning) { showToast('Une tache est en cours', 'warning'); return; }
+            btn.disabled = true;
+            btn.textContent = 'Installation...';
+            fetch('/api/themes/install', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({type, name})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Installation de "' + name + '" lancee', 'success');
+                    addLog('Theme : installation de ' + name + ' lancee');
+                } else {
+                    showToast('Erreur : ' + data.error, 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Installer';
+                }
+            })
+            .catch(err => { showToast('Erreur reseau : ' + err, 'error'); btn.disabled = false; btn.textContent = 'Installer'; });
+        }
+
+        // =============================================
+        // INSTALLATION PERSONNALISEE DEPUIS MODAL
+        // =============================================
+        let _modalProfileSlug = null;
+
+        function showProfileDetail(slug) {
+            _modalProfileSlug = slug;
+            fetch('/api/profiles/' + slug)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const p = data.profile;
+                    document.getElementById('modalTitle').textContent = (ICON_MAP[p.icon] || '') + ' ' + p.name;
+                    document.getElementById('modalDesc').textContent = p.description;
+
+                    let html = '';
+                    const sections = [
+                        ['apt',      'APT',        'name', true],
+                        ['flatpak',  'Flatpak',    'app',  true],
+                        ['external', 'Externe',    'name', true],
+                        ['remove',   'Suppression','name', false],
+                    ];
+                    sections.forEach(([key, label, nameField, checkable]) => {
+                        if (!p[key].length) return;
+                        html += '<div class="pkg-section"><h4>' + label + ' (' + p[key].length + ')</h4><ul class="pkg-list">';
+                        p[key].forEach((pkg, i) => {
+                            const id = 'mpkg_' + key + '_' + i;
+                            const pkgName = pkg[nameField];
+                            if (checkable) {
+                                html += `<li style="display:flex; align-items:center; gap: 8px;">
+                                    <input type="checkbox" id="${id}" data-type="${key}" data-idx="${i}" checked style="cursor:pointer; width:15px; height:15px; flex-shrink:0;">
+                                    <label for="${id}" style="cursor:pointer; flex:1;">
+                                        <span class="pkg-name">${esc(pkgName)}</span>
+                                        <span class="pkg-desc">${esc(pkg.description)}</span>
+                                    </label>
+                                </li>`;
+                            } else {
+                                html += '<li><span class="pkg-name">' + esc(pkgName) + '</span><span class="pkg-desc">' + esc(pkg.description) + '</span></li>';
+                            }
+                        });
+                        html += '</ul></div>';
+                    });
+                    // Stocker le profil pour install-custom
+                    document.getElementById('modalContent').innerHTML = html;
+                    document.getElementById('modalContent').dataset.profile = JSON.stringify(p);
+                    document.getElementById('modalFooter').style.display = 'flex';
+                    document.getElementById('modalOverlay').classList.add('active');
+                });
+        }
+
+        function checkAllModalPkgs(checked) {
+            document.querySelectorAll('#modalContent input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+        }
+
+        function installCustomFromModal() {
+            if (isTaskRunning) { showToast('Une tache est en cours', 'warning'); return; }
+            const p = JSON.parse(document.getElementById('modalContent').dataset.profile || '{}');
+            const checked = {};
+            document.querySelectorAll('#modalContent input[type=checkbox]:checked').forEach(cb => {
+                const type = cb.dataset.type;
+                const idx  = parseInt(cb.dataset.idx);
+                if (!checked[type]) checked[type] = [];
+                checked[type].push(idx);
+            });
+            const apt      = (checked.apt      || []).map(i => p.apt[i]);
+            const flatpak  = (checked.flatpak  || []).map(i => p.flatpak[i]);
+            const external = (checked.external || []).map(i => ({...p.external[i]}));
+            const remove   = (p.remove || []);  // suppression: toujours tout
+
+            if (!apt.length && !flatpak.length && !external.length) {
+                showToast('Aucun paquet coche', 'warning');
+                return;
+            }
+            const total = apt.length + flatpak.length + external.length;
+            showConfirm(
+                'Installer la selection ?',
+                total + ' paquet(s) selectionne(s) du profil.',
+                () => {
+                    closeModal();
+                    fetch('/api/profiles/install-custom', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({apt, flatpak, external, remove})
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) addLog('Installation personnalisee lancee (' + total + ' paquets)');
+                        else showToast('Erreur : ' + data.error, 'error');
+                    })
+                    .catch(err => showToast('Erreur reseau : ' + err, 'error'));
+                }
+            );
+        }
 
         function loadDconfOptions() {
             fetch('/api/dconf/options')
