@@ -3,16 +3,19 @@
   "description": "Pilotes et outils pour cartes graphiques NVIDIA",
   "icon": "gpu",
   "apt": [
-    { "name": "nvidia-driver-550", "description": "Pilote NVIDIA 550 (recommande)" },
-    { "name": "nvidia-settings", "description": "Panneau de configuration NVIDIA" },
-    { "name": "nvidia-prime", "description": "Gestion Optimus (laptop hybrid GPU)" },
-    { "name": "vulkan-tools", "description": "Outils Vulkan (vulkaninfo)" },
+    { "name": "mesa-vulkan-drivers", "description": "Pilotes Vulkan Mesa" },
     { "name": "libvulkan1", "description": "Loader Vulkan" },
-    { "name": "libvulkan1:i386", "description": "Loader Vulkan 32-bit" },
-    { "name": "mesa-utils", "description": "Utilitaires Mesa (glxinfo)" },
-    { "name": "nvtop", "description": "Moniteur d'utilisation GPU NVIDIA" }
+    { "name": "vulkan-tools", "description": "Outils Vulkan (vulkaninfo, vkcube)" },
+    { "name": "mesa-utils", "description": "Utilitaires Mesa (glxinfo, glxgears)" },
+    { "name": "nvtop", "description": "Moniteur GPU NVIDIA interactif" }
   ],
   "flatpak": [],
-  "external": [],
+  "external": [
+    {
+      "name": "Pilotes NVIDIA via mintdrivers",
+      "description": "Installez les pilotes NVIDIA via le Gestionnaire de pilotes Mint",
+      "cmd": "mintdrivers"
+    }
+  ],
   "remove": []
 }

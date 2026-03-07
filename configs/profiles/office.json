@@ -1,20 +1,15 @@
 {
   "name": "Bureautique",
-  "description": "Suite bureautique, email, notes et outils PDF",
+  "description": "Suite office, email et outils de productivite",
   "icon": "office",
   "apt": [
-    { "name": "libreoffice", "description": "Suite bureautique LibreOffice" },
-    { "name": "libreoffice-l10n-fr", "description": "LibreOffice - traduction francaise" },
-    { "name": "libreoffice-help-fr", "description": "LibreOffice - aide en francais" },
-    { "name": "hunspell-fr", "description": "Dictionnaire francais pour le correcteur" },
-    { "name": "pdfarranger", "description": "Fusion et decoupe de PDF" },
-    { "name": "foliate", "description": "Lecteur de livres numeriques (EPUB)" }
+    { "name": "thunderbird", "description": "Client email et calendrier Mozilla" },
+    { "name": "pdfarranger", "description": "Reorganisation et fusion de pages PDF" },
+    { "name": "drawing", "description": "Editeur d'images simple (type Paint)" },
+    { "name": "transmission-gtk", "description": "Client BitTorrent leger" }
   ],
   "flatpak": [
-    { "app": "org.mozilla.Thunderbird", "description": "Thunderbird - Client email" },
-    { "app": "md.obsidian.Obsidian", "description": "Obsidian - Prise de notes Markdown" },
-    { "app": "com.github.flxzt.rnote", "description": "Rnote - Notes manuscrites et annotations" },
-    { "app": "org.onlyoffice.desktopeditors", "description": "OnlyOffice - Suite bureautique alternative" }
+    { "app": "org.onlyoffice.desktopeditors", "description": "Suite bureautique OnlyOffice (compatible MS Office)" }
   ],
   "external": [],
   "remove": []

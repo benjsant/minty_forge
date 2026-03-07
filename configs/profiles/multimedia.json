@@ -1,24 +1,18 @@
 {
   "name": "Multimedia",
-  "description": "Creation audio, video, image et streaming",
+  "description": "Lecteurs media, creation video/audio et retouche image",
   "icon": "film",
   "apt": [
-    { "name": "mpv", "description": "Lecteur multimedia leger" },
-    { "name": "ffmpeg", "description": "Encodeur/decodeur multimedia" },
-    { "name": "imagemagick", "description": "Manipulation d'images en CLI" },
-    { "name": "rhythmbox", "description": "Lecteur de musique" },
-    { "name": "pdfarranger", "description": "Fusion et decoupe de PDF" }
+    { "name": "mpv", "description": "Lecteur multimedia puissant et leger" },
+    { "name": "celluloid", "description": "Interface GTK moderne pour mpv" },
+    { "name": "yt-dlp", "description": "Telechargeur YouTube et 1000+ plateformes" },
+    { "name": "ffmpegthumbnailer", "description": "Miniatures video dans Nemo" },
+    { "name": "rhythmbox", "description": "Lecteur et bibliotheque musicale" },
+    { "name": "pavucontrol", "description": "Controle de volume avance PipeWire/PulseAudio" }
   ],
   "flatpak": [
-    { "app": "com.obsproject.Studio", "description": "OBS Studio - Streaming et enregistrement" },
-    { "app": "org.gimp.GIMP", "description": "GIMP - Edition d'images avancee" },
-    { "app": "org.inkscape.Inkscape", "description": "Inkscape - Edition vectorielle SVG" },
-    { "app": "org.kde.kdenlive", "description": "Kdenlive - Montage video" },
-    { "app": "org.audacityteam.Audacity", "description": "Audacity - Edition audio" },
-    { "app": "org.blender.Blender", "description": "Blender - 3D, animation, rendu" },
-    { "app": "org.videolan.VLC", "description": "VLC - Lecteur multimedia universel" },
-    { "app": "com.spotify.Client", "description": "Spotify - Streaming musical" },
-    { "app": "io.github.seadve.Kooha", "description": "Kooha - Enregistrement d'ecran simple" }
+    { "app": "com.obsproject.Studio", "description": "Enregistrement et streaming video (OBS Studio)" },
+    { "app": "org.gimp.GIMP", "description": "Editeur d'images professionnel GIMP" }
   ],
   "external": [],
   "remove": []

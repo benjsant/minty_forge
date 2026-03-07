@@ -1277,10 +1277,18 @@
                 return;
             }
             const total = apt.length + flatpak.length + external.length;
+            const slug  = _modalProfileSlug;
             showConfirm(
                 'Installer la selection ?',
                 total + ' paquet(s) selectionne(s) du profil.',
                 () => {
+                    // Deselectionner le profil de la grille pour eviter double-install
+                    if (slug) {
+                        selectedProfiles.delete(slug);
+                        const card = document.querySelector('.profile-card[data-slug="' + slug + '"]');
+                        if (card) { card.classList.remove('selected'); card.querySelector('.check-mark').textContent = ''; }
+                        updateProfileButton();
+                    }
                     closeModal();
                     fetch('/api/profiles/install-custom', {
                         method: 'POST',
