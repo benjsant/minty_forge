@@ -303,11 +303,6 @@
         }
         function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
 
-        function toggleAdvanced() {
-            document.getElementById('advancedContent').classList.toggle('open');
-            document.getElementById('advancedChevron').classList.toggle('open');
-        }
-
         // Pare-feu
         function loadFirewall() {
             fetch('/api/system/firewall')
@@ -496,6 +491,7 @@
         function installTheme(type, name, btn) {
             if (isTaskRunning) { showToast('Une tache est en cours', 'warning'); return; }
             const system = document.getElementById('themeSystemInstall')?.checked || false;
+            _themeInstallPending = true;   // positionner avant le fetch pour eviter la race condition SSE
             btn.disabled = true;
             btn.textContent = system ? 'Install. systeme...' : 'Installation...';
             fetch('/api/themes/install', {
@@ -506,16 +502,16 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    _themeInstallPending = true;
                     showToast('Installation de "' + name + '" lancee', 'success');
                     addLog('Theme : installation de ' + name + ' lancee');
                 } else {
+                    _themeInstallPending = false;
                     showToast('Erreur : ' + data.error, 'error');
                     btn.disabled = false;
                     btn.textContent = 'Installer';
                 }
             })
-            .catch(err => { showToast('Erreur reseau : ' + err, 'error'); btn.disabled = false; btn.textContent = 'Installer'; });
+            .catch(err => { _themeInstallPending = false; showToast('Erreur reseau : ' + err, 'error'); btn.disabled = false; btn.textContent = 'Installer'; });
         }
 
         // =============================================
@@ -991,31 +987,6 @@
             }, true);
         }
 
-        // Legacy actions
-        function executeAll() {
-            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
-            showConfirm('Lancer l\'installation complete ?', 'Mode legacy — cela peut prendre plusieurs minutes.', () => {
-                fetch('/api/execute/all', { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) addLog('Installation complete demarree');
-                    else showToast('Erreur : ' + data.error, 'error');
-                })
-                .catch(err => showToast('Erreur reseau : ' + err, 'error'));
-            });
-        }
-
-        function executeAction(action) {
-            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
-            fetch('/api/execute/' + action, { method: 'POST' })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) addLog(data.message);
-                    else showToast('Erreur : ' + data.error, 'error');
-                })
-                .catch(err => showToast('Erreur reseau : ' + err, 'error'));
-        }
-
         // Dry-run / Export / Import
         function dryRunProfiles() {
             if (selectedProfiles.size === 0) return showToast('Aucun profil selectionne.', 'warning');
@@ -1100,17 +1071,4 @@
             input.click();
         }
 
-        function executeRecommendedThemes() {
-            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
-            showConfirm('Appliquer la config themes recommandee ?', 'Les themes GTK, icones et curseurs seront configures.', () => {
-                addLog('Configuration des themes...');
-                fetch('/api/theme/apply_recommended', { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) addLog(data.message);
-                        else showToast('Erreur : ' + data.error, 'error');
-                    })
-                    .catch(err => showToast('Erreur reseau : ' + err, 'error'));
-            });
-        }
 

@@ -151,26 +151,6 @@
             </div>
         </div>
 
-        <div class="advanced-section">
-            <button class="advanced-toggle" onclick="toggleAdvanced()">
-                <span>Actions avancees</span>
-                <span class="chevron" id="advancedChevron">&#9660;</span>
-            </button>
-            <div class="advanced-content" id="advancedContent">
-                <button class="big-button btn-primary btn-install-all" id="btnInstallAll" onclick="executeAll()">
-                    TOUT INSTALLER (legacy)
-                </button>
-                <div class="action-grid">
-                    <button class="big-button btn-secondary" onclick="executeAction('apt_install')">APT</button>
-                    <button class="big-button btn-secondary" onclick="executeAction('flatpak_install')">Flatpak</button>
-                    <button class="big-button btn-primary" onclick="executeRecommendedThemes()">Config Themes</button>
-                    <button class="big-button btn-secondary" onclick="executeAction('themes_install')">Themes (Avance)</button>
-                    <button class="big-button btn-secondary" onclick="executeAction('external_install')">Externes</button>
-                    <button class="big-button btn-danger" onclick="executeAction('apt_remove')">Nettoyage</button>
-                    <button class="big-button btn-secondary" onclick="executeAction('drivers')">Drivers</button>
-                </div>
-            </div>
-        </div>
 
         <div class="history-section">
             <h2>Pare-feu (ufw)</h2>
