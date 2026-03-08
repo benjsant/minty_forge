@@ -568,9 +568,12 @@
                 <div style="color: var(--text-muted);">Chargement des profils...</div>
             </div>
             <button class="install-profiles-btn" id="btnInstallProfiles" onclick="installProfiles()" disabled>
-                Installer les profils selectionnes
+                Installer les profils selectionnes (tous les paquets)
                 <span class="btn-sub" id="profilesBtnSub">Aucun profil selectionne</span>
             </button>
+            <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 8px; text-align: center;">
+                Pour choisir paquet par paquet : cliquer "Detail" sur un profil, cocher/decocher, puis "Installer la selection".
+            </p>
         </div>
 
         <!-- Catalogue de themes -->
@@ -584,7 +587,17 @@
                     <button class="btn-small" onclick="loadThemeCatalog()">Rafraichir</button>
                 </div>
             </div>
-            <div id="themeCatalogGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 10px;">
+            <div style="display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.88em; color: var(--text-muted);">
+                    <input type="checkbox" id="themeHideInstalled" onchange="renderThemeTab(_currentThemeTab)">
+                    Masquer les deja installes
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.88em; color: var(--text-muted);" title="Installe dans /usr/share (pour tous les utilisateurs) — necessite sudo">
+                    <input type="checkbox" id="themeSystemInstall">
+                    Installation systeme (/usr/share) — necessite sudo
+                </label>
+            </div>
+            <div id="themeCatalogGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 4px;">
                 <div style="color: var(--text-muted);">Chargement...</div>
             </div>
         </div>
@@ -1155,9 +1168,11 @@
 
         function renderThemeTab(type) {
             const grid = document.getElementById('themeCatalogGrid');
-            const themes = (_themeCatalog[type] || []);
+            const hideInstalled = document.getElementById('themeHideInstalled')?.checked;
+            let themes = (_themeCatalog[type] || []);
+            if (hideInstalled) themes = themes.filter(t => !t.installed);
             if (!themes.length) {
-                grid.innerHTML = '<div style="color: var(--text-muted);">Aucun theme dans ce catalogue.</div>';
+                grid.innerHTML = '<div style="color: var(--text-muted);">' + (hideInstalled ? 'Tous les themes de ce catalogue sont deja installes.' : 'Aucun theme dans ce catalogue.') + '</div>';
                 return;
             }
             grid.innerHTML = '';
@@ -1182,12 +1197,13 @@
 
         function installTheme(type, name, btn) {
             if (isTaskRunning) { showToast('Une tache est en cours', 'warning'); return; }
+            const system = document.getElementById('themeSystemInstall')?.checked || false;
             btn.disabled = true;
-            btn.textContent = 'Installation...';
+            btn.textContent = system ? 'Install. systeme...' : 'Installation...';
             fetch('/api/themes/install', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({type, name})
+                body: JSON.stringify({type, name, system})
             })
             .then(r => r.json())
             .then(data => {

@@ -131,12 +131,16 @@ disable_sleep() {
         ORIG_AC_IDLE=$(gsettings get org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout 2>/dev/null || echo "")
         ORIG_BAT_IDLE=$(gsettings get org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 2>/dev/null || echo "")
         ORIG_SCREENSAVER=$(gsettings get org.cinnamon.desktop.screensaver idle-activation-enabled 2>/dev/null || echo "")
+        ORIG_LOCK=$(gsettings get org.cinnamon.desktop.screensaver lock-enabled 2>/dev/null || echo "")
+        ORIG_DIM=$(gsettings get org.cinnamon.settings-daemon.plugins.power idle-dim 2>/dev/null || echo "")
 
         gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout 0 2>/dev/null
         gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 0 2>/dev/null
         gsettings set org.cinnamon.desktop.screensaver idle-activation-enabled false 2>/dev/null
+        gsettings set org.cinnamon.desktop.screensaver lock-enabled false 2>/dev/null
+        gsettings set org.cinnamon.settings-daemon.plugins.power idle-dim false 2>/dev/null
 
-        ok "Mise en veille desactivee"
+        ok "Mise en veille et verrouillage desactives"
     else
         warn "gsettings non disponible, mise en veille non modifiee"
     fi
@@ -154,10 +158,12 @@ disable_sleep() {
 
 restore_sleep() {
     if command -v gsettings &>/dev/null; then
-        [ -n "$ORIG_AC_IDLE" ] && gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout "$ORIG_AC_IDLE" 2>/dev/null
-        [ -n "$ORIG_BAT_IDLE" ] && gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout "$ORIG_BAT_IDLE" 2>/dev/null
+        [ -n "$ORIG_AC_IDLE" ]   && gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout "$ORIG_AC_IDLE" 2>/dev/null
+        [ -n "$ORIG_BAT_IDLE" ]  && gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout "$ORIG_BAT_IDLE" 2>/dev/null
         [ -n "$ORIG_SCREENSAVER" ] && gsettings set org.cinnamon.desktop.screensaver idle-activation-enabled "$ORIG_SCREENSAVER" 2>/dev/null
-        info "Mise en veille restauree"
+        [ -n "$ORIG_LOCK" ]      && gsettings set org.cinnamon.desktop.screensaver lock-enabled "$ORIG_LOCK" 2>/dev/null
+        [ -n "$ORIG_DIM" ]       && gsettings set org.cinnamon.settings-daemon.plugins.power idle-dim "$ORIG_DIM" 2>/dev/null
+        info "Mise en veille et verrouillage restaures"
     fi
     [ -n "$INHIBIT_PID" ] && kill "$INHIBIT_PID" 2>/dev/null
 }

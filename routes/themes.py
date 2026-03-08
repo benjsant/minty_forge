@@ -1,5 +1,6 @@
 """Routes /api/themes - catalogue et installation de themes depuis git."""
 import json
+import os
 import threading
 from pathlib import Path
 
@@ -55,11 +56,11 @@ def install_theme():
     data = request.get_json(silent=True) or {}
     theme_type = data.get("type")
     theme_name = data.get("name")
+    system     = bool(data.get("system", False))   # True = /usr/share, False = ~/
 
     if theme_type not in _CATALOG_FILES or not theme_name:
         return jsonify({"success": False, "error": "type et name requis (gtk|icon|cursor)"}), 400
 
-    # Trouver le theme dans le catalogue
     try:
         raw = json.loads(Path(_CATALOG_FILES[theme_type]).read_text())
     except Exception:
@@ -69,32 +70,47 @@ def install_theme():
     if entry is None:
         return jsonify({"success": False, "error": f"Theme '{theme_name}' introuvable"}), 404
     if not entry.get("url"):
-        return jsonify({"success": False, "error": "Ce theme n'a pas d'URL git (deja inclus dans le systeme)"}), 400
+        return jsonify({"success": False, "error": "Ce theme n'a pas d'URL git (deja inclus systeme)"}), 400
+
+    # Choisir la commande selon la destination
+    cmd_key = "cmd_root" if system else "cmd_user"
+    install_cmd = entry.get(cmd_key, "")
+    if not install_cmd:
+        install_cmd = entry.get("cmd_user", "")  # fallback
+
+    # Developper ~ en chemin absolu (subprocess ne le fait pas)
+    install_cmd = install_cmd.replace("~", os.path.expanduser("~"))
+
+    # Prefixer sudo pour installation systeme
+    if system and not install_cmd.startswith("sudo"):
+        install_cmd = "sudo " + install_cmd
 
     with task_lock:
         if current_task["running"]:
             return jsonify({"success": False, "error": "Tache en cours"}), 409
-        current_task.update(running=True, name=f"Theme : {theme_name}", progress=0)
+        dest = "/usr/share" if system else "~/"
+        current_task.update(running=True, name=f"Theme : {theme_name} → {dest}", progress=0)
 
     def run():
         try:
+            dest_label = "/usr/share" if system else "~/.themes / ~/.icons"
+            log_info(f"Installation de {theme_name} vers {dest_label}...")
             update_task_status(f"Theme : {theme_name}", True, 10)
-            log_info(f"Installation du theme {theme_name}...")
             tm = ThemeManager()
             success, msg = tm.install_theme_from_git(
                 entry.get("name_to_use", theme_name),
                 entry["url"],
-                entry.get("cmd_user", ""),
+                install_cmd,
                 theme_type,
             )
             if success:
                 log_success(msg)
                 update_task_status(f"Theme installe : {theme_name}", False, 100)
             else:
-                log_error(msg)
+                log_error(f"Echec : {msg}")
                 update_task_status(f"Echec theme : {theme_name}", False, 0)
         except Exception as e:
-            log_error(f"Erreur installation theme : {e}")
+            log_error(f"Erreur inattendue theme : {e}")
             update_task_status("Erreur theme", False, 0)
 
     threading.Thread(target=run, daemon=True).start()

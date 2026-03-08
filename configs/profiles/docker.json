@@ -1,15 +1,13 @@
 {
-  "name": "Docker & Conteneurs",
-  "description": "Docker CE, Podman et outils de gestion de conteneurs",
+  "name": "Docker & Virtualisation",
+  "description": "Docker CE et gestionnaire de machines virtuelles KVM/QEMU",
   "icon": "docker",
   "apt": [
-    { "name": "podman", "description": "Moteur de conteneurs sans daemon (rootless)" },
-    { "name": "virt-manager", "description": "Gestionnaire de machines virtuelles (KVM/QEMU)" }
+    { "name": "virt-manager", "description": "Gestionnaire de machines virtuelles (KVM/QEMU)" },
+    { "name": "qemu-kvm", "description": "Hyperviseur KVM" },
+    { "name": "libvirt-daemon-system", "description": "Daemon libvirt pour la virtualisation" }
   ],
-  "flatpak": [
-    { "app": "io.podman_desktop.PodmanDesktop", "description": "Interface graphique pour Podman et Docker" },
-    { "app": "io.github.dvlv.boxbuddyrs", "description": "Gestionnaire graphique Distrobox (BoxBuddy)" }
-  ],
+  "flatpak": [],
   "external": [
     {
       "name": "Docker CE",

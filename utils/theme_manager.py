@@ -42,18 +42,17 @@ class ThemeManager:
         Returns:
             (bool, Path): (présent, chemin) ou (False, None)
         """
-        if theme_type in ("gtk", "cursor"):
+        if theme_type == "gtk":
             search_paths = self.gtk_theme_paths
-        else:  # icon
+        else:  # icon et cursor sont tous les deux dans les chemins icones
             search_paths = self.icon_theme_paths
-        
+
         for base_path in search_paths:
             theme_path = base_path / theme_name
             if theme_path.exists() and theme_path.is_dir():
-                # Vérifier qu'il contient des fichiers (pas juste un dossier vide)
                 if any(theme_path.iterdir()):
                     return True, theme_path
-        
+
         return False, None
     
     def list_available_themes(self, theme_type: str = "gtk") -> List[str]:
@@ -68,11 +67,11 @@ class ThemeManager:
         """
         themes = set()
         
-        if theme_type in ("gtk", "cursor"):
+        if theme_type == "gtk":
             search_paths = self.gtk_theme_paths
-        else:
+        else:  # icon et cursor
             search_paths = self.icon_theme_paths
-        
+
         for base_path in search_paths:
             if not base_path.exists():
                 continue
