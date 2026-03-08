@@ -6,7 +6,8 @@
     { "name": "gufw", "description": "Interface graphique pour le pare-feu UFW" },
     { "name": "clamtk", "description": "Interface graphique pour l'antivirus ClamAV" },
     { "name": "wireguard", "description": "Module kernel VPN WireGuard" },
-    { "name": "wireguard-tools", "description": "Outils CLI VPN WireGuard (wg, wg-quick)" }
+    { "name": "wireguard-tools", "description": "Outils CLI VPN WireGuard (wg, wg-quick)" },
+    { "name": "wireguard-go", "description": "Implementation WireGuard en espace utilisateur" }
   ],
   "flatpak": [],
   "external": [],

@@ -133,12 +133,14 @@ disable_sleep() {
         ORIG_SCREENSAVER=$(gsettings get org.cinnamon.desktop.screensaver idle-activation-enabled 2>/dev/null || echo "")
         ORIG_LOCK=$(gsettings get org.cinnamon.desktop.screensaver lock-enabled 2>/dev/null || echo "")
         ORIG_DIM=$(gsettings get org.cinnamon.settings-daemon.plugins.power idle-dim 2>/dev/null || echo "")
+        ORIG_IDLE_DELAY=$(gsettings get org.cinnamon.desktop.session idle-delay 2>/dev/null || echo "")
 
         gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-ac-timeout 0 2>/dev/null || true
         gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout 0 2>/dev/null || true
         gsettings set org.cinnamon.desktop.screensaver idle-activation-enabled false 2>/dev/null || true
         gsettings set org.cinnamon.desktop.screensaver lock-enabled false 2>/dev/null || true
         gsettings set org.cinnamon.settings-daemon.plugins.power idle-dim false 2>/dev/null || true
+        gsettings set org.cinnamon.desktop.session idle-delay 0 2>/dev/null || true
 
         ok "Mise en veille et verrouillage desactives"
     else
@@ -162,7 +164,8 @@ restore_sleep() {
         [ -n "$ORIG_BAT_IDLE" ]    && gsettings set org.cinnamon.settings-daemon.plugins.power sleep-inactive-battery-timeout "$ORIG_BAT_IDLE" 2>/dev/null || true
         [ -n "$ORIG_SCREENSAVER" ] && gsettings set org.cinnamon.desktop.screensaver idle-activation-enabled "$ORIG_SCREENSAVER" 2>/dev/null || true
         [ -n "$ORIG_LOCK" ]        && gsettings set org.cinnamon.desktop.screensaver lock-enabled "$ORIG_LOCK" 2>/dev/null || true
-        [ -n "$ORIG_DIM" ]         && gsettings set org.cinnamon.settings-daemon.plugins.power idle-dim "$ORIG_DIM" 2>/dev/null || true
+        [ -n "$ORIG_DIM" ]        && gsettings set org.cinnamon.settings-daemon.plugins.power idle-dim "$ORIG_DIM" 2>/dev/null || true
+        [ -n "$ORIG_IDLE_DELAY" ] && gsettings set org.cinnamon.desktop.session idle-delay "$ORIG_IDLE_DELAY" 2>/dev/null || true
         info "Mise en veille et verrouillage restaures"
     fi
     [ -n "$INHIBIT_PID" ] && kill "$INHIBIT_PID" 2>/dev/null

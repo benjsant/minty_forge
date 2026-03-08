@@ -12,6 +12,7 @@
     { "name": "neofetch", "description": "Affichage des infos systeme dans le terminal" },
     { "name": "7zip", "description": "Archiveur 7-Zip natif" },
     { "name": "p7zip-full", "description": "Support 7z en ligne de commande" },
+    { "name": "sassc", "description": "Compilateur SASS/SCSS (requis pour themes GTK)" },
     { "name": "ubuntu-restricted-extras", "description": "Codecs multimedia et polices essentielles" },
     { "name": "ttf-mscorefonts-installer", "description": "Polices Microsoft TrueType" },
     { "name": "fonts-firacode", "description": "Police FiraCode pour le developpement" },

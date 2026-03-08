@@ -12,7 +12,9 @@
     { "name": "kdeconnect", "description": "Integration telephone Android (fichiers, notifs, clipboard)" },
     { "name": "scrcpy", "description": "Mirroring et controle Android depuis le PC" },
     { "name": "blueman", "description": "Gestionnaire Bluetooth graphique" },
-    { "name": "lshw", "description": "Inventaire detaille du materiel" }
+    { "name": "lshw", "description": "Inventaire detaille du materiel" },
+    { "name": "rpi-imager", "description": "Outil de creation de cartes SD Raspberry Pi" },
+    { "name": "hplip-gui", "description": "Interface graphique pilotes imprimantes HP" }
   ],
   "flatpak": [],
   "external": [],

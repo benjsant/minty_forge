@@ -68,8 +68,13 @@ def list_profiles():
             except ValueError:
                 return len(PROFILE_ORDER)
 
+        # Masquer le profil GPU oppose si le materiel est identifie
+        _gpu_exclude = {"amd": "nvidia", "nvidia": "amd"}.get(gpu)
+
         result = {}
         for slug in sorted(profiles.keys(), key=sort_key):
+            if slug == _gpu_exclude:
+                continue
             p = profiles[slug]
             result[slug] = {
                 "name": p.name,

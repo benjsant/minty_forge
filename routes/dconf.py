@@ -34,7 +34,9 @@ _SETTINGS_MAP = {
     "num_workspaces":         [("org.gnome.desktop.wm.preferences",            "num-workspaces")],
     "night_light_enabled":    [("org.cinnamon.settings-daemon.plugins.color",  "night-light-enabled")],
     "night_light_temp":       [("org.cinnamon.settings-daemon.plugins.color",  "night-light-temperature")],
+    "night_light_schedule":   [("org.cinnamon.settings-daemon.plugins.color",  "night-light-schedule-mode")],
     "lock_enabled":           [("org.cinnamon.desktop.screensaver",            "lock-enabled")],
+    "idle_delay":             [("org.cinnamon.desktop.session",                "idle-delay")],
     "event_sounds": [
         ("org.cinnamon.desktop.sound", "event-sounds"),
         ("org.gnome.desktop.sound",    "event-sounds"),
@@ -48,6 +50,13 @@ _SETTINGS_MAP = {
     "sleep_bat_timeout": [("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout")],
     "screensaver_active":[("org.cinnamon.desktop.screensaver",            "idle-activation-enabled")],
     "color_scheme":      [("org.gnome.desktop.interface",                  "color-scheme")],
+    "sleep_display_ac":  [("org.cinnamon.settings-daemon.plugins.power",  "sleep-display-ac")],
+    "buttons_have_icons":[("org.cinnamon.settings-daemon.plugins.xsettings", "buttons-have-icons")],
+    "menus_have_icons":  [("org.cinnamon.settings-daemon.plugins.xsettings", "menus-have-icons")],
+    "audible_bell": [
+        ("org.gnome.desktop.wm.preferences", "audible-bell"),
+        ("org.cinnamon.desktop.wm.preferences", "audible-bell"),
+    ],
 }
 
 
@@ -62,6 +71,11 @@ def _gs_get(schema, key):
 
 def _gs_set(schema, key, value):
     try:
+        # gsettings attend 'true'/'false' en minuscules pour les booleens
+        if isinstance(value, bool):
+            value = 'true' if value else 'false'
+        elif isinstance(value, str) and value.lower() in ('true', 'false'):
+            value = value.lower()
         r = subprocess.run(["gsettings", "set", schema, key, str(value)],
                            capture_output=True, text=True, timeout=5)
         return r.returncode == 0, r.stderr.strip()
@@ -115,7 +129,13 @@ def dconf_options():
             "button_layout":          _gs_get("org.gnome.desktop.wm.preferences", "button-layout"),
             "night_light_enabled":    _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-enabled"),
             "night_light_temp":       _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-temperature"),
+            "night_light_schedule":   _gs_get("org.cinnamon.settings-daemon.plugins.color", "night-light-schedule-mode"),
             "lock_enabled":           _gs_get("org.cinnamon.desktop.screensaver", "lock-enabled"),
+            "idle_delay":             _gs_get("org.cinnamon.desktop.session", "idle-delay"),
+            "sleep_display_ac":       _gs_get("org.cinnamon.settings-daemon.plugins.power", "sleep-display-ac"),
+            "buttons_have_icons":     _gs_get("org.cinnamon.settings-daemon.plugins.xsettings", "buttons-have-icons"),
+            "menus_have_icons":       _gs_get("org.cinnamon.settings-daemon.plugins.xsettings", "menus-have-icons"),
+            "audible_bell":           _gs_get("org.gnome.desktop.wm.preferences", "audible-bell"),
             "event_sounds":           _gs_get("org.cinnamon.desktop.sound", "event-sounds"),
             "show_hidden_files":      _gs_get("org.nemo.preferences", "show-hidden-files"),
             "desktop_icons_home":     _gs_get("org.nemo.desktop", "home-icon-visible"),

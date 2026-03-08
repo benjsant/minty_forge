@@ -14,7 +14,9 @@
     { "name": "libdrm-amdgpu1", "description": "Lib DRM pour GPU AMD" },
     { "name": "libdrm-amdgpu1:i386", "description": "Lib DRM AMD 32-bit" },
     { "name": "xserver-xorg-video-amdgpu", "description": "Pilote Xorg AMDGPU" },
-    { "name": "linux-firmware", "description": "Firmware GPU AMD (inclus dans linux-firmware)" },
+    { "name": "linux-firmware", "description": "Firmware GPU AMD" },
+    { "name": "vainfo", "description": "Diagnostic acceleration video VA-API" },
+    { "name": "vdpauinfo", "description": "Diagnostic acceleration video VDPAU" },
     { "name": "radeontop", "description": "Moniteur d'utilisation GPU AMD" },
     { "name": "corectrl", "description": "Controle GPU/CPU (frequences, ventilateurs)" }
   ],

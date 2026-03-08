@@ -1,6 +1,14 @@
 {
   "themes": [
     {
+      "name": "Qogir-Light",
+      "name_to_use": "Qogir",
+      "url": "https://github.com/vinceliuice/Qogir-theme.git",
+      "cmd_user": "bash install.sh -d ~/.themes",
+      "cmd_root": "bash install.sh -d /usr/share/themes",
+      "description": "Qogir light GTK theme"
+    },
+    {
       "name": "Qogir-Dark",
       "name_to_use": "Qogir-Dark",
       "url": "https://github.com/vinceliuice/Qogir-theme.git",
@@ -9,12 +17,20 @@
       "description": "Qogir dark GTK theme"
     },
     {
-      "name": "WhiteSur",
-      "name_to_use": "WhiteSur",
+      "name": "WhiteSur-Light",
+      "name_to_use": "WhiteSur-Light",
       "url": "https://github.com/vinceliuice/WhiteSur-gtk-theme.git",
-      "cmd_user": "bash install.sh -d ~/.themes -c dark",
-      "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
-      "description": "WhiteSur GTK theme"
+      "cmd_user": "bash install.sh -d ~/.themes",
+      "cmd_root": "bash install.sh -d /usr/share/themes",
+      "description": "WhiteSur light GTK theme"
+    },
+    {
+      "name": "WhiteSur-Dark",
+      "name_to_use": "WhiteSur-Dark",
+      "url": "https://github.com/vinceliuice/WhiteSur-gtk-theme.git",
+      "cmd_user": "bash install.sh -d ~/.themes -c Dark",
+      "cmd_root": "bash install.sh -d /usr/share/themes -c Dark",
+      "description": "WhiteSur dark GTK theme"
     },
     {
       "name": "Mint-Y-Dark-Blue",
@@ -22,15 +38,15 @@
       "url": "",
       "cmd_user": "",
       "cmd_root": "",
-      "description": "Mint Y Dark Blue GTK theme"
+      "description": "Mint Y Dark Blue (inclus dans Mint)"
     },
     {
       "name": "Vimix",
       "name_to_use": "Vimix",
       "url": "https://github.com/vinceliuice/Vimix-gtk-themes.git",
-      "cmd_user": "bash install.sh -d ~/.themes -c dark",
-      "cmd_root": "bash install.sh -d /usr/share/themes -c dark",
-      "description": "Vimix gtk dark theme"
+      "cmd_user": "bash install.sh -d ~/.themes",
+      "cmd_root": "bash install.sh -d /usr/share/themes",
+      "description": "Vimix GTK theme"
     }
   ]
 }
