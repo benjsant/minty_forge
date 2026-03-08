@@ -737,9 +737,9 @@
                             </div>
                             ${buildToggle('dconf_screensaver', 'Economiseur d\'ecran actif', data.current.screensaver_active === 'true')}
                         </div>
-                    \`;
+                    `;
 
-                    grid.innerHTML += \`
+                    grid.innerHTML += `
                         <div class="dconf-group">
                             <h3>Interface</h3>
                             ${buildToggle('dconf_buttons_icons', 'Icones dans les boutons', data.current.buttons_have_icons === 'true')}
@@ -1114,6 +1114,3 @@
             });
         }
 
-<system-reminder>
-Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
-</system-reminder>
