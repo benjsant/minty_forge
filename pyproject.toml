@@ -7,3 +7,8 @@ dependencies = [
     "flask>=3.0.0",
     "pydantic>=2.0.0",
 ]
+
+[tool.uv]
+# uv cree automatiquement .venv/ a la racine du projet
+# Lancer : uv sync
+# Executer : uv run python minty_forge.py

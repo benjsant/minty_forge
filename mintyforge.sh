@@ -67,11 +67,8 @@ info "Synchronisation des dependances (uv sync)..."
 uv sync --quiet || fail "uv sync a echoue. Verifiez pyproject.toml"
 ok "Dependances synchronisees"
 
-# Activer le venv cree par uv (.venv/ dans SCRIPT_DIR)
-source "$SCRIPT_DIR/.venv/bin/activate"
-
-# Verification rapide de Flask
-python -c "import flask" 2>/dev/null || fail "Flask introuvable apres uv sync"
+# Verification rapide de Flask via uv run
+uv run python -c "import flask" 2>/dev/null || fail "Flask introuvable apres uv sync"
 
 # =============================================================
 # 4. Demander sudo (cache le mot de passe pour les scripts)
@@ -178,4 +175,4 @@ info "URL: http://localhost:5000"
 info "Arret: CTRL+C"
 echo ""
 
-python "$PYTHON_SCRIPT"
+uv run python "$PYTHON_SCRIPT"
