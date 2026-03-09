@@ -2,8 +2,8 @@
 # =============================================================
 # MintyForge - Script tout-en-un
 # =============================================================
-# 1. Verifie Python 3 et python3-venv
-# 2. Cree le venv si absent, installe les dependances
+# 1. Verifie Python 3
+# 2. Installe uv si absent, puis synchronise les dependances (uv sync)
 # 3. Demande le mot de passe sudo (et le garde en cache)
 # 4. Desactive la mise en veille pendant l'execution
 # 5. Lance l'interface web et ouvre le navigateur
@@ -17,8 +17,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-VENV_DIR="$SCRIPT_DIR/.venv"
-REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
 PYTHON_SCRIPT="$SCRIPT_DIR/minty_forge.py"
 
 # -- Couleurs --
@@ -48,50 +46,33 @@ PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
 ok "Python $PYTHON_VERSION"
 
 # =============================================================
-# 2. Verifier/installer python3-venv (avec ensurepip)
+# 2. Verifier/installer uv
 # =============================================================
-if ! python3 -c "import ensurepip" 2>/dev/null; then
-    warn "Module ensurepip absent, installation du paquet venv..."
-    PYTHON_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
-    sudo apt update -qq
-    sudo apt install -y "python3.${PYTHON_MINOR}-venv"
-    ok "python3.${PYTHON_MINOR}-venv installe"
-fi
-
-# =============================================================
-# 3. Creer le venv si absent + installer dependances
-# =============================================================
-if [ ! -d "$VENV_DIR" ]; then
-    info "Creation du virtual environment..."
-    python3 -m venv "$VENV_DIR"
-    ok "venv cree"
-    NEED_INSTALL=1
-elif [ ! -f "$VENV_DIR/bin/pip" ]; then
-    warn "venv corrompu, recreation..."
-    rm -rf "$VENV_DIR"
-    python3 -m venv "$VENV_DIR"
-    ok "venv recree"
-    NEED_INSTALL=1
+if ! command -v uv &>/dev/null; then
+    info "uv non trouve, installation via le script officiel..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh \
+        || fail "Impossible d'installer uv (verifiez curl et la connexion internet)"
+    # Le script installe uv dans ~/.local/bin ou ~/.cargo/bin
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    command -v uv &>/dev/null || fail "uv installe mais introuvable dans PATH"
+    ok "uv installe ($(uv --version | cut -d' ' -f2))"
 else
-    NEED_INSTALL=0
+    ok "uv $(uv --version | cut -d' ' -f2)"
 fi
 
-# Toujours activer le venv
-source "$VENV_DIR/bin/activate"
+# =============================================================
+# 3. Synchroniser les dependances avec uv
+# =============================================================
+info "Synchronisation des dependances (uv sync)..."
+uv sync --project "$SCRIPT_DIR" --quiet \
+    || fail "uv sync a echoue. Verifiez pyproject.toml"
+ok "Dependances synchronisees"
 
-# Installer les dependances si nouveau venv ou si requirements.txt plus recent que le venv
-if [ "$NEED_INSTALL" = "1" ] || [ "$REQUIREMENTS" -nt "$VENV_DIR/installed.marker" ]; then
-    info "Installation des dependances..."
-    pip install --upgrade pip --quiet 2>/dev/null
-    pip install -r "$REQUIREMENTS" --quiet
-    touch "$VENV_DIR/installed.marker"
-    ok "Dependances installees"
-else
-    ok "Dependances a jour"
-fi
+# Activer le venv cree par uv (.venv/)
+source "$SCRIPT_DIR/.venv/bin/activate"
 
 # Verification rapide de Flask
-python -c "import flask" 2>/dev/null || fail "Flask non installe malgre l'installation. Verifiez requirements.txt"
+python -c "import flask" 2>/dev/null || fail "Flask introuvable apres uv sync"
 
 # =============================================================
 # 4. Demander sudo (cache le mot de passe pour les scripts)

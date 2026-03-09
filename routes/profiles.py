@@ -68,19 +68,18 @@ def list_profiles():
             except ValueError:
                 return len(PROFILE_ORDER)
 
-        # Masquer le profil GPU oppose si le materiel est identifie
-        _gpu_exclude = {"amd": "nvidia", "nvidia": "amd"}.get(gpu)
+        # Profil GPU oppose = verrouille (visible mais desactive par defaut)
+        _gpu_opposite = {"amd": "nvidia", "nvidia": "amd"}.get(gpu)
 
         result = {}
         for slug in sorted(profiles.keys(), key=sort_key):
-            if slug == _gpu_exclude:
-                continue
             p = profiles[slug]
             result[slug] = {
                 "name": p.name,
                 "description": p.description,
                 "icon": p.icon,
                 "suggested": slug == gpu,
+                "locked": slug == _gpu_opposite,  # verrouille si GPU oppose detecte
                 "counts": {
                     "apt": len(p.apt), "flatpak": len(p.flatpak),
                     "external": len(p.external), "remove": len(p.remove),

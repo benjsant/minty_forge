@@ -191,8 +191,18 @@
                         const card = document.createElement('div');
                         card.className = 'profile-card';
                         card.dataset.slug = slug;
+                        card.dataset.locked = p.locked ? '1' : '0';
+
                         card.onclick = (e) => {
                             if (e.target.closest('.btn-detail')) return;
+                            if (p.locked && card.dataset.unlocked !== '1') {
+                                showConfirm(
+                                    'Profil non recommande',
+                                    'Ce profil est destine a un GPU different de celui detecte. Forcer l\'installation peut causer des conflits. Continuer quand meme ?',
+                                    () => { card.dataset.unlocked = '1'; toggleProfile(slug, card); }
+                                );
+                                return;
+                            }
                             toggleProfile(slug, card);
                         };
 
@@ -202,19 +212,22 @@
                         if (p.counts.external) counts.push(p.counts.external + ' Externe');
                         if (p.counts.remove) counts.push(p.counts.remove + ' Suppr.');
 
-                        const badgeHtml = p.suggested ? '<div class="badge-suggested">Recommande</div>' : '';
+                        const badgeHtml = p.suggested
+                            ? '<div class="badge-suggested">Recommande</div>'
+                            : (p.locked ? '<div class="badge-suggested" style="background: #64748b;">🔒 GPU different</div>' : '');
 
                         card.innerHTML = `
                             <div class="check-mark"></div>
                             ${badgeHtml}
-                            <div class="profile-icon">${ICON_MAP[p.icon] || '📦'}</div>
-                            <div class="profile-name">${p.name}</div>
-                            <div class="profile-desc">${p.description}</div>
+                            <div class="profile-icon" style="${p.locked ? 'opacity:0.5' : ''}">${ICON_MAP[p.icon] || '📦'}</div>
+                            <div class="profile-name" style="${p.locked ? 'opacity:0.6' : ''}">${p.name}</div>
+                            <div class="profile-desc" style="${p.locked ? 'opacity:0.6' : ''}">${p.description}</div>
                             <div class="profile-counts">
                                 ${counts.map(c => '<span>' + c + '</span>').join('')}
                             </div>
                             <button class="btn-detail" onclick="showProfileDetail('${slug}')" title="Voir le detail">Detail &#8594;</button>
                         `;
+                        if (p.locked) card.style.borderColor = '#94a3b8';
                         grid.appendChild(card);
 
                         if (p.suggested) toggleProfile(slug, card);
