@@ -64,11 +64,10 @@ fi
 # 3. Synchroniser les dependances avec uv
 # =============================================================
 info "Synchronisation des dependances (uv sync)..."
-uv sync --project "$SCRIPT_DIR" --quiet \
-    || fail "uv sync a echoue. Verifiez pyproject.toml"
+uv sync --quiet || fail "uv sync a echoue. Verifiez pyproject.toml"
 ok "Dependances synchronisees"
 
-# Activer le venv cree par uv (.venv/)
+# Activer le venv cree par uv (.venv/ dans SCRIPT_DIR)
 source "$SCRIPT_DIR/.venv/bin/activate"
 
 # Verification rapide de Flask
