@@ -332,7 +332,7 @@
                         ['Icones',     c['icon-theme-name']],
                         ['Curseur',    c['cursor-theme-name']],
                         ['Police',     c['font-name']],
-                        ['Numlock',    c['numlock']],
+                        ['Numlock',    c['activate-numlock']],
                         ['Fond',       c['background']],
                     ];
                     el.innerHTML = lines
@@ -351,13 +351,20 @@
                     fetch('/api/greeter/sync', { method: 'POST' })
                         .then(r => r.json())
                         .then(data => {
-                            if (data.success) {
+                            if (data.applied && data.applied.length > 0) {
                                 showToast('Greeter synchronise (' + data.applied.length + ' parametres)', 'success');
                                 addLog('Slick-greeter : ' + data.applied.join(', '));
-                                loadGreeterStatus();
-                            } else {
-                                showToast('Erreurs greeter : ' + (data.errors || []).join(', '), 'error');
                             }
+                            if (data.warnings && data.warnings.length > 0) {
+                                data.warnings.forEach(w => {
+                                    showToast(w, 'warning');
+                                    addLog('[WARN] Greeter : ' + w);
+                                });
+                            }
+                            if (data.errors && data.errors.length > 0) {
+                                showToast('Echecs greeter : ' + data.errors.join(', '), 'error');
+                            }
+                            loadGreeterStatus();
                         })
                         .catch(err => showToast('Erreur reseau : ' + err, 'error'));
                 }
@@ -549,7 +556,9 @@
                     <div style="font-size: 0.82em; color: var(--text-muted);">${esc(t.description)}</div>
                     <div style="font-size: 0.8em; color: ${statusColor}; font-weight: 500;">${statusLabel}</div>
                     ${canInstall
-                        ? `<button class="btn-small" style="margin-top: auto;" onclick="installTheme('${type}', '${esc(t.name)}', this)">Installer</button>`
+                        ? `<button class="btn-small" style="margin-top: auto;" onclick="installTheme('${type}', '${esc(t.name)}', this)">
+                               Installer → /usr/share
+                           </button>`
                         : `<button class="btn-small" style="margin-top: auto; opacity: 0.4; cursor: not-allowed;" disabled>${t.installed ? 'Deja installe' : 'Inclus systeme'}</button>`
                     }
                 `;
@@ -702,7 +711,7 @@
                         <div class="dconf-group">
                             <h3>Mode couleur</h3>
                             <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:10px;">
-                                Change color-scheme ET le theme GTK simultanement pour Cinnamon.
+                                Bascule color-scheme, theme GTK, theme Cinnamon (shell) et WM simultanement.
                             </p>
                             <div style="display:flex; gap:8px;">
                                 <button class="btn-small" id="btnLightMode"
@@ -952,7 +961,7 @@
             .then(data => {
                 if (data.success) {
                     showToast('Mode ' + label + ' applique (GTK: ' + data.gtk_theme + ')', 'success');
-                    addLog('Mode ' + label + ' : color-scheme + gtk-theme = ' + data.gtk_theme);
+                    addLog('Mode ' + label + ' : GTK=' + data.gtk_theme + ', Cinnamon=' + (data.cinnamon_theme||'') + ', WM=' + (data.wm_theme||''));
                     // Mettre a jour visuellement les boutons
                     document.getElementById('btnLightMode').style.borderColor = dark ? '' : 'var(--primary)';
                     document.getElementById('btnLightMode').style.color = dark ? '' : 'var(--primary)';

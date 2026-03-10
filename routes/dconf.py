@@ -49,7 +49,10 @@ _SETTINGS_MAP = {
     "sleep_ac_timeout":  [("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-ac-timeout")],
     "sleep_bat_timeout": [("org.cinnamon.settings-daemon.plugins.power", "sleep-inactive-battery-timeout")],
     "screensaver_active":[("org.cinnamon.desktop.screensaver",            "idle-activation-enabled")],
-    "color_scheme":      [("org.gnome.desktop.interface",                  "color-scheme")],
+    "color_scheme": [
+        ("org.gnome.desktop.interface", "color-scheme"),
+        ("org.x.apps.portal",           "color-scheme"),
+    ],
     "sleep_display_ac":  [("org.cinnamon.settings-daemon.plugins.power",  "sleep-display-ac")],
     "buttons_have_icons":[("org.cinnamon.settings-daemon.plugins.xsettings", "buttons-have-icons")],
     "menus_have_icons":  [("org.cinnamon.settings-daemon.plugins.xsettings", "menus-have-icons")],
@@ -243,23 +246,36 @@ def _derive_light_variant(theme: str) -> str:
 
 @bp.route('/api/dconf/dark-mode', methods=['POST'])
 def toggle_dark_mode():
-    """Bascule mode sombre/clair : color-scheme + GTK theme en une seule action."""
+    """Bascule mode sombre/clair : color-scheme + GTK/Cinnamon/WM themes."""
     data = request.get_json(silent=True) or {}
     dark = bool(data.get("dark", True))
 
     current_gtk = _gs_get("org.cinnamon.desktop.interface", "gtk-theme")
+    current_cinnamon = _gs_get("org.cinnamon.theme", "name")
+    current_wm = _gs_get("org.gnome.desktop.wm.preferences", "theme")
+
     if dark:
-        color_val = "prefer-dark"
-        gtk_val   = _derive_dark_variant(current_gtk)
+        color_val    = "prefer-dark"
+        gtk_val      = _derive_dark_variant(current_gtk)
+        cinnamon_val = _derive_dark_variant(current_cinnamon)
+        wm_val       = _derive_dark_variant(current_wm)
     else:
-        color_val = "default"
-        gtk_val   = _derive_light_variant(current_gtk)
+        color_val    = "default"
+        gtk_val      = _derive_light_variant(current_gtk)
+        cinnamon_val = _derive_light_variant(current_cinnamon)
+        wm_val       = _derive_light_variant(current_wm)
+
+    # XApp portal : "prefer-dark" pour les apps Mint (xed, xviewer, xreader...)
+    xapp_color = color_val  # meme valeur que gnome color-scheme
 
     results = []
     for schema, key, value in [
-        ("org.gnome.desktop.interface",    "color-scheme", color_val),
-        ("org.cinnamon.desktop.interface", "gtk-theme",    gtk_val),
-        ("org.gnome.desktop.interface",    "gtk-theme",    gtk_val),
+        ("org.gnome.desktop.interface",      "color-scheme", color_val),
+        ("org.x.apps.portal",                "color-scheme", xapp_color),
+        ("org.cinnamon.desktop.interface",   "gtk-theme",    gtk_val),
+        ("org.gnome.desktop.interface",      "gtk-theme",    gtk_val),
+        ("org.cinnamon.theme",               "name",         cinnamon_val),
+        ("org.gnome.desktop.wm.preferences", "theme",        wm_val),
     ]:
         ok, err = _gs_set(schema, key, value)
         if ok:
@@ -270,8 +286,9 @@ def toggle_dark_mode():
             results.append({"key": key, "value": value, "ok": False, "error": err})
 
     mode = "sombre" if dark else "clair"
-    log_success(f"Mode {mode} applique (GTK: {gtk_val})")
-    return jsonify({"success": True, "mode": mode, "gtk_theme": gtk_val, "results": results})
+    log_success(f"Mode {mode} applique (GTK: {gtk_val}, Cinnamon: {cinnamon_val}, WM: {wm_val})")
+    return jsonify({"success": True, "mode": mode, "gtk_theme": gtk_val,
+                    "cinnamon_theme": cinnamon_val, "wm_theme": wm_val, "results": results})
 
 
 @bp.route('/api/dconf/export')

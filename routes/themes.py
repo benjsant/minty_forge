@@ -56,7 +56,7 @@ def install_theme():
     data = request.get_json(silent=True) or {}
     theme_type = data.get("type")
     theme_name = data.get("name")
-    system     = bool(data.get("system", False))   # True = /usr/share, False = ~/
+    system     = bool(data.get("system", True))    # True = /usr/share (defaut), False = ~/
 
     if theme_type not in _CATALOG_FILES or not theme_name:
         return jsonify({"success": False, "error": "type et name requis (gtk|icon|cursor)"}), 400

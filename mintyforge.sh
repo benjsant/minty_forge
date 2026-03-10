@@ -94,6 +94,19 @@ if ! sudo -v; then
 fi
 ok "Acces sudo"
 
+# =============================================================
+# 4b. Installer crudini et sassc si absents (requis par MintyForge)
+# =============================================================
+_MISSING_PKGS=()
+command -v crudini &>/dev/null || _MISSING_PKGS+=("crudini")
+command -v sassc   &>/dev/null || _MISSING_PKGS+=("sassc")
+if [ ${#_MISSING_PKGS[@]} -gt 0 ]; then
+    info "Installation des outils requis : ${_MISSING_PKGS[*]}..."
+    sudo apt install -y "${_MISSING_PKGS[@]}" -qq \
+        || warn "Impossible d'installer : ${_MISSING_PKGS[*]} (verifiez la connexion)"
+    ok "Outils requis installes"
+fi
+
 # Configurer sudoers pour ufw et crudini sans mot de passe (si pas deja fait)
 SUDOERS_FILE="/etc/sudoers.d/mintyforge"
 if [ ! -f "$SUDOERS_FILE" ]; then
