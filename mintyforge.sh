@@ -49,12 +49,26 @@ ok "Python $PYTHON_VERSION"
 # 2. Verifier/installer uv
 # =============================================================
 if ! command -v uv &>/dev/null; then
-    info "uv non trouve, installation via le script officiel..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh \
-        || fail "Impossible d'installer uv (verifiez curl et la connexion internet)"
-    # Le script installe uv dans ~/.local/bin ou ~/.cargo/bin
+    info "uv non trouve, installation..."
+    _UV_DONE=0
+
+    # Methode 1 : script officiel astral.sh (telecharge d'abord, execute ensuite)
+    if curl -LsSf https://astral.sh/uv/install.sh -o /tmp/_uv_install.sh 2>/dev/null; then
+        sh /tmp/_uv_install.sh && _UV_DONE=1
+        rm -f /tmp/_uv_install.sh
+    else
+        warn "Script officiel astral.sh indisponible (erreur reseau), tentative via pip..."
+    fi
+
+    # Methode 2 : fallback pip
+    if [ "$_UV_DONE" = "0" ]; then
+        pip install --user uv --quiet 2>/dev/null \
+            || pip3 install --user uv --quiet 2>/dev/null \
+            || fail "Impossible d'installer uv. Essayez manuellement : pip install uv"
+    fi
+
     export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
-    command -v uv &>/dev/null || fail "uv installe mais introuvable dans PATH"
+    command -v uv &>/dev/null || fail "uv introuvable apres installation (PATH: $PATH)"
     ok "uv installe ($(uv --version | cut -d' ' -f2))"
 else
     ok "uv $(uv --version | cut -d' ' -f2)"

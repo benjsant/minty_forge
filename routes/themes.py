@@ -79,11 +79,30 @@ def install_theme():
         install_cmd = entry.get("cmd_user", "")  # fallback
 
     # Developper ~ en chemin absolu (subprocess ne le fait pas)
-    install_cmd = install_cmd.replace("~", os.path.expanduser("~"))
+    home = os.path.expanduser("~")
+    install_cmd = install_cmd.replace("~", home)
 
     # Prefixer sudo pour installation systeme
     if system and not install_cmd.startswith("sudo"):
         install_cmd = "sudo " + install_cmd
+
+    # Creer les dossiers cibles si necessaire (evite les echecs silencieux)
+    if not system:
+        import subprocess as _sp
+        if theme_type == "gtk":
+            os.makedirs(f"{home}/.themes", exist_ok=True)
+        else:  # icon + cursor
+            os.makedirs(f"{home}/.icons", exist_ok=True)
+            os.makedirs(f"{home}/.local/share/icons", exist_ok=True)
+
+    # Verifier sassc pour themes GTK (requis pour compiler les SCSS)
+    if theme_type == "gtk":
+        import subprocess as _sp
+        if _sp.run(["which", "sassc"], capture_output=True).returncode != 0:
+            return jsonify({
+                "success": False,
+                "error": "sassc manquant — installez-le d'abord : sudo apt install sassc"
+            }), 400
 
     with task_lock:
         if current_task["running"]:

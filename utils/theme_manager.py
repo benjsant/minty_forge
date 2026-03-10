@@ -133,7 +133,8 @@ class ThemeManager:
                     timeout=300
                 )
                 if not result.success:
-                    return False, f"Echec installation : {result.stderr}"
+                    detail = (result.stderr or result.stdout or "pas de detail").strip()
+                    return False, f"Echec installation : {detail}"
 
                 # 3. Vérifier que l'installation a réussi
                 is_installed, theme_path = self.is_theme_installed(theme_name, theme_type)
