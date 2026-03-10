@@ -51,6 +51,7 @@
             loadDconfOptions();
             loadHistory();
             loadFirewall();
+            loadGreeterStatus();
             connectLogs();
             loadLogsHistory();
             setInterval(updateStatus, 5000);
@@ -316,6 +317,53 @@
         }
         function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
 
+        // =============================================
+        // SLICK-GREETER
+        // =============================================
+        function loadGreeterStatus() {
+            fetch('/api/greeter/status')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('greeterStatus');
+                    if (!data.success) { el.textContent = 'Impossible de lire slick-greeter (crudini/sudo disponible ?)'; return; }
+                    const c = data.current;
+                    const lines = [
+                        ['Theme GTK',  c['theme-name']],
+                        ['Icones',     c['icon-theme-name']],
+                        ['Curseur',    c['cursor-theme-name']],
+                        ['Police',     c['font-name']],
+                        ['Numlock',    c['numlock']],
+                        ['Fond',       c['background']],
+                    ];
+                    el.innerHTML = lines
+                        .filter(([, v]) => v)
+                        .map(([k, v]) => `<span style="margin-right:18px;"><b>${k}</b> : ${esc(v)}</span>`)
+                        .join('') || 'Aucune configuration detectee (fichier vide ou absent)';
+                })
+                .catch(() => { document.getElementById('greeterStatus').textContent = 'Erreur reseau'; });
+        }
+
+        function greeterSync() {
+            showConfirm(
+                'Synchroniser le greeter ?',
+                'Les themes, icones, curseur, police et numlock seront appliques a l\'ecran de connexion.',
+                () => {
+                    fetch('/api/greeter/sync', { method: 'POST' })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                showToast('Greeter synchronise (' + data.applied.length + ' parametres)', 'success');
+                                addLog('Slick-greeter : ' + data.applied.join(', '));
+                                loadGreeterStatus();
+                            } else {
+                                showToast('Erreurs greeter : ' + (data.errors || []).join(', '), 'error');
+                            }
+                        })
+                        .catch(err => showToast('Erreur reseau : ' + err, 'error'));
+                }
+            );
+        }
+
         // Pare-feu
         function loadFirewall() {
             fetch('/api/system/firewall')
@@ -448,6 +496,14 @@
         // =============================================
         let _themeCatalog = {};
         let _currentThemeTab = 'gtk';
+
+        function reloadAllThemes() {
+            showToast('Rechargement des themes...', 'info');
+            // Recharge le catalogue (statut installe/non installe)
+            loadThemeCatalog();
+            // Recharge les selects de themes dans la section bureau (nouveaux themes detectes)
+            loadDconfOptions();
+        }
 
         function loadThemeCatalog() {
             document.getElementById('themeCatalogGrid').innerHTML = '<div style="color: var(--text-muted);">Chargement...</div>';
@@ -641,15 +697,27 @@
                     const grid = document.getElementById('dconfGrid');
                     grid.innerHTML = '';
 
-                    const colorSchemeOptions = ['default', 'prefer-dark'];
-                    let colorSchemeHtml = '<div class="dconf-group"><h3>Mode couleur</h3><div class="dconf-field"><label>Apparence (Light / Dark)</label><select id="dconf_color_scheme">';
-                    colorSchemeOptions.forEach(opt => {
-                        const label = opt === 'default' ? 'Clair (Light)' : 'Sombre (Dark)';
-                        const selected = data.current.color_scheme === opt ? ' selected' : '';
-                        colorSchemeHtml += `<option value="${opt}"${selected}>${label}</option>`;
-                    });
-                    colorSchemeHtml += '</select></div></div>';
-                    grid.innerHTML += colorSchemeHtml;
+                    const isDark = data.current.color_scheme === 'prefer-dark';
+                    grid.innerHTML += `
+                        <div class="dconf-group">
+                            <h3>Mode couleur</h3>
+                            <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:10px;">
+                                Change color-scheme ET le theme GTK simultanement pour Cinnamon.
+                            </p>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn-small" id="btnLightMode"
+                                    style="${!isDark ? 'border-color:var(--primary);color:var(--primary);' : ''}"
+                                    onclick="applyDarkMode(false)">
+                                    Clair (Light)
+                                </button>
+                                <button class="btn-small" id="btnDarkMode"
+                                    style="${isDark ? 'border-color:var(--primary);color:var(--primary);' : ''}"
+                                    onclick="applyDarkMode(true)">
+                                    Sombre (Dark)
+                                </button>
+                            </div>
+                        </div>
+                    `;
 
                     grid.innerHTML += buildSelectGroup('Themes', [
                         {id: 'gtk_theme', label: 'Theme GTK', options: data.themes.gtk, current: data.current.gtk_theme},
@@ -794,7 +862,6 @@
             const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
             const chk = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
             return {
-                color_scheme: val('dconf_color_scheme'),
                 gtk_theme: val('dconf_gtk_theme'),
                 icon_theme: val('dconf_icon_theme'),
                 cursor_theme: val('dconf_cursor_theme'),
@@ -829,7 +896,6 @@
             const changes = [];
 
             const strFields = [
-                ['color_scheme', 'color-scheme'],
                 ['gtk_theme', 'gtk-theme'], ['icon_theme', 'icon-theme'],
                 ['cursor_theme', 'cursor-theme'], ['cinnamon_theme', 'cinnamon-theme'],
                 ['wm_theme', 'wm-theme'], ['font_name', 'font-name'],
@@ -872,6 +938,33 @@
             } else {
                 wrap.style.display = 'none';
             }
+        }
+
+        function applyDarkMode(dark) {
+            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
+            const label = dark ? 'sombre' : 'clair';
+            fetch('/api/dconf/dark-mode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({dark})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Mode ' + label + ' applique (GTK: ' + data.gtk_theme + ')', 'success');
+                    addLog('Mode ' + label + ' : color-scheme + gtk-theme = ' + data.gtk_theme);
+                    // Mettre a jour visuellement les boutons
+                    document.getElementById('btnLightMode').style.borderColor = dark ? '' : 'var(--primary)';
+                    document.getElementById('btnLightMode').style.color = dark ? '' : 'var(--primary)';
+                    document.getElementById('btnDarkMode').style.borderColor = dark ? 'var(--primary)' : '';
+                    document.getElementById('btnDarkMode').style.color = dark ? 'var(--primary)' : '';
+                    // Rafraichir les themes dans les selects (le gtk-theme a change)
+                    setTimeout(() => loadDconfOptions(), 800);
+                } else {
+                    showToast('Erreur mode ' + label, 'error');
+                }
+            })
+            .catch(err => showToast('Erreur reseau : ' + err, 'error'));
         }
 
         function applyDconf() {

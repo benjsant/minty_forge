@@ -94,13 +94,17 @@ if ! sudo -v; then
 fi
 ok "Acces sudo"
 
-# Configurer sudoers pour ufw sans mot de passe (si pas deja fait)
-SUDOERS_FILE="/etc/sudoers.d/mintyforge-ufw"
+# Configurer sudoers pour ufw et crudini sans mot de passe (si pas deja fait)
+SUDOERS_FILE="/etc/sudoers.d/mintyforge"
 if [ ! -f "$SUDOERS_FILE" ]; then
-    info "Configuration sudo pour le pare-feu (ufw)..."
-    echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/ufw" | sudo tee "$SUDOERS_FILE" > /dev/null
+    info "Configuration sudo (ufw + crudini)..."
+    CRUDINI_PATH=$(command -v crudini 2>/dev/null || echo "/usr/bin/crudini")
+    {
+        echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/ufw"
+        echo "$USER ALL=(ALL) NOPASSWD: $CRUDINI_PATH"
+    } | sudo tee "$SUDOERS_FILE" > /dev/null
     sudo chmod 440 "$SUDOERS_FILE"
-    ok "Pare-feu configure (sudo ufw sans mot de passe)"
+    ok "Sudo configure (ufw + crudini sans mot de passe)"
 fi
 
 # Garder sudo actif en arriere-plan (renouvelle toutes les 50s)

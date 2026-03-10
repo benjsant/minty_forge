@@ -20,7 +20,7 @@ from routes.shared import (
 
 bp = Blueprint("profiles", __name__)
 
-PROFILE_ORDER = ["base", "office", "gaming", "dev", "multimedia", "docker", "distrobox", "amd", "nvidia", "privacy", "system"]
+PROFILE_ORDER = ["base", "office", "gaming", "dev", "multimedia", "docker", "distrobox", "amd", "nvidia", "privacy", "vpn", "browsers", "system"]
 
 # Caches session (invalides au redemarrage seulement)
 _gpu_cache = None

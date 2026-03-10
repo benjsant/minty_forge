@@ -2,10 +2,10 @@
   "themes": [
     {
       "name": "Qogir-Light",
-      "name_to_use": "Qogir",
+      "name_to_use": "Qogir-Light",
       "url": "https://github.com/vinceliuice/Qogir-theme.git",
-      "cmd_user": "bash install.sh -d ~/.themes",
-      "cmd_root": "bash install.sh -d /usr/share/themes",
+      "cmd_user": "bash install.sh -d ~/.themes -c light",
+      "cmd_root": "bash install.sh -d /usr/share/themes -c light",
       "description": "Qogir light GTK theme"
     },
     {

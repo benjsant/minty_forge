@@ -1,0 +1,22 @@
+{
+  "name": "VPN & Reseau",
+  "description": "Plugins VPN pour NetworkManager (OpenVPN, WireGuard, L2TP, Fortinet...)",
+  "icon": "shield",
+  "apt": [
+    { "name": "network-manager-l2tp", "description": "Plugin VPN L2TP/IPsec" },
+    { "name": "network-manager-l2tp-gnome", "description": "Interface graphique L2TP/IPsec" },
+    { "name": "network-manager-openconnect", "description": "Plugin VPN OpenConnect (Cisco AnyConnect)" },
+    { "name": "network-manager-openconnect-gnome", "description": "Interface graphique OpenConnect" },
+    { "name": "network-manager-ssh", "description": "Plugin tunnel SSH" },
+    { "name": "network-manager-ssh-gnome", "description": "Interface graphique tunnel SSH" },
+    { "name": "network-manager-strongswan", "description": "Plugin VPN IKEv2/IPsec (strongSwan)" },
+    { "name": "network-manager-vpnc", "description": "Plugin VPN Cisco (VPNC)" },
+    { "name": "network-manager-vpnc-gnome", "description": "Interface graphique VPNC" },
+    { "name": "network-manager-fortisslvpn", "description": "Plugin VPN FortiSSL (Fortinet)" },
+    { "name": "network-manager-fortisslvpn-gnome", "description": "Interface graphique FortiSSL" },
+    { "name": "iw", "description": "Outils diagnostic reseau sans-fil" }
+  ],
+  "flatpak": [],
+  "external": [],
+  "remove": []
+}

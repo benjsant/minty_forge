@@ -206,6 +206,74 @@ def apply_settings():
     return jsonify({"success": True, "message": "Application des parametres lancee"})
 
 
+# Table explicite pour les themes avec nommage non standard
+_TO_DARK  = {"Qogir-Light": "Qogir-Dark",   "Qogir": "Qogir-Dark",
+             "WhiteSur-Light": "WhiteSur-Dark"}
+_TO_LIGHT = {"Qogir-Dark": "Qogir-Light",
+             "WhiteSur-Dark": "WhiteSur-Light"}
+
+
+def _derive_dark_variant(theme: str) -> str:
+    """Derive le nom du theme sombre a partir du theme clair."""
+    if theme in _TO_DARK:
+        return _TO_DARK[theme]
+    # Mint-Y-Aqua → Mint-Y-Dark-Aqua, Mint-Y → Mint-Y-Dark
+    if theme.startswith("Mint-Y-") and "Dark" not in theme:
+        suffix = theme[len("Mint-Y-"):]
+        return f"Mint-Y-Dark-{suffix}" if suffix else "Mint-Y-Dark"
+    if "Dark" not in theme:
+        if theme.endswith("-Light"):
+            return theme[:-6] + "-Dark"
+        return theme + "-Dark"
+    return theme  # deja sombre
+
+
+def _derive_light_variant(theme: str) -> str:
+    """Derive le nom du theme clair a partir du theme sombre."""
+    if theme in _TO_LIGHT:
+        return _TO_LIGHT[theme]
+    # Mint-Y-Dark-Aqua → Mint-Y-Aqua, Mint-Y-Dark → Mint-Y
+    if theme.startswith("Mint-Y-Dark"):
+        suffix = theme[len("Mint-Y-Dark"):]
+        return f"Mint-Y{suffix}" if suffix else "Mint-Y"
+    if theme.endswith("-Dark"):
+        return theme[:-5]
+    return theme  # deja clair
+
+
+@bp.route('/api/dconf/dark-mode', methods=['POST'])
+def toggle_dark_mode():
+    """Bascule mode sombre/clair : color-scheme + GTK theme en une seule action."""
+    data = request.get_json(silent=True) or {}
+    dark = bool(data.get("dark", True))
+
+    current_gtk = _gs_get("org.cinnamon.desktop.interface", "gtk-theme")
+    if dark:
+        color_val = "prefer-dark"
+        gtk_val   = _derive_dark_variant(current_gtk)
+    else:
+        color_val = "default"
+        gtk_val   = _derive_light_variant(current_gtk)
+
+    results = []
+    for schema, key, value in [
+        ("org.gnome.desktop.interface",    "color-scheme", color_val),
+        ("org.cinnamon.desktop.interface", "gtk-theme",    gtk_val),
+        ("org.gnome.desktop.interface",    "gtk-theme",    gtk_val),
+    ]:
+        ok, err = _gs_set(schema, key, value)
+        if ok:
+            log_info(f"{'Sombre' if dark else 'Clair'} : {key} = {value}")
+            results.append({"key": key, "value": value, "ok": True})
+        else:
+            log_warn(f"Echec {key} : {err}")
+            results.append({"key": key, "value": value, "ok": False, "error": err})
+
+    mode = "sombre" if dark else "clair"
+    log_success(f"Mode {mode} applique (GTK: {gtk_val})")
+    return jsonify({"success": True, "mode": mode, "gtk_theme": gtk_val, "results": results})
+
+
 @bp.route('/api/dconf/export')
 def export_dconf():
     """Export complet de la config dconf (backup uniquement)."""
