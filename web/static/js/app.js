@@ -212,7 +212,7 @@
                         const counts = [];
                         if (p.counts.apt) counts.push(p.counts.apt + ' APT');
                         if (p.counts.flatpak) counts.push(p.counts.flatpak + ' Flatpak');
-                        if (p.counts.external) counts.push(p.counts.external + ' Externe');
+                        if (p.counts.external) counts.push('⚠️ ' + p.counts.external + ' Externe');
                         if (p.counts.remove) counts.push(p.counts.remove + ' Suppr.');
 
                         const badgeHtml = p.suggested
@@ -670,7 +670,10 @@
                     ];
                     sections.forEach(([key, label, nameField, checkable]) => {
                         if (!p[key].length) return;
-                        html += '<div class="pkg-section"><h4>' + label + ' (' + p[key].length + ')</h4><ul class="pkg-list">';
+                        const extWarning = key === 'external'
+                            ? '<div style="background:#fff3cd;border-left:3px solid #f0ad4e;border-radius:5px;padding:7px 11px;margin-bottom:8px;font-size:0.82em;color:#856404;">⚠️ <strong>Paquets externes</strong> — ces commandes installent depuis des depots tiers (non officiels). Verifiez les sources avant d\'installer.</div>'
+                            : '';
+                        html += '<div class="pkg-section"><h4>' + label + ' (' + p[key].length + ')</h4>' + extWarning + '<ul class="pkg-list">';
                         p[key].forEach((pkg, i) => {
                             const id = 'mpkg_' + key + '_' + i;
                             const pkgName = pkg[nameField];
