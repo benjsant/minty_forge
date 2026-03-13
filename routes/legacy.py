@@ -1,4 +1,6 @@
 """Routes legacy : status, logs, execute, theme."""
+import os
+import signal
 import json
 import queue
 import shutil
@@ -8,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Blueprint, jsonify, Response
+from flask import Blueprint, jsonify, Response, request
 
 from utils import apt_update, apt_upgrade
 from utils.theme_manager import ThemeManager
@@ -54,6 +56,7 @@ def _check_system():
 def _get_package_counts():
     files = {
         "apt": "configs/install.json",
+        "optional": "configs/optional_install.json",
         "flatpak": "configs/flatpak.json",
         "external": "configs/external_packages.json",
         "themes_gtk": "configs/themes_gtk.json",
@@ -143,6 +146,7 @@ def execute_action(action):
     action_map = {
         "apt_install": "apt_install",
         "apt_remove": "apt_remove",
+        "optional_install": "optional_install",
         "flatpak_install": "flatpak_install",
         "themes_install": "themes_install",
         "external_install": "external_install",
@@ -178,6 +182,7 @@ def execute_all():
         tasks = [
             ("Mise a jour systeme", "system_update"),
             ("Paquets APT", "apt_install"),
+            ("Paquets optionnels", "optional_install"),
             ("Paquets externes", "external_install"),
             ("Nettoyage", "apt_remove"),
             ("Flatpaks", "flatpak_install"),
@@ -219,6 +224,37 @@ def execute_all():
     return jsonify({"success": True, "message": "Installation complete lancee"})
 
 
+@bp.route('/api/quit', methods=['POST'])
+def quit_app():
+    """Arrete le serveur Flask proprement."""
+    log_info("Arret de MintyForge demande par l'utilisateur.")
+
+    def shutdown():
+        time.sleep(0.5)
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    threading.Thread(target=shutdown, daemon=True).start()
+    return jsonify({"success": True, "message": "Arret en cours..."})
+
+
+@bp.route('/api/optional/list')
+def optional_list():
+    """Liste les paquets optionnels avec leur statut d'installation."""
+    try:
+        config_file = Path("configs/optional_install.json")
+        if not config_file.exists():
+            return jsonify({"packages": []})
+        with open(config_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        packages = data.get("packages", [])
+        from utils import check_package_installed
+        for pkg in packages:
+            pkg["installed"] = check_package_installed(pkg["name"])
+        return jsonify({"packages": packages})
+    except Exception as e:
+        return jsonify({"packages": [], "error": str(e)})
+
+
 @bp.route('/api/theme/status')
 def theme_status():
     try:
@@ -247,18 +283,22 @@ def apply_recommended_theme():
                 return
             log_info("Application de la config recommandee...")
             update_task_status("Config themes recommandee", True, 20)
-            success, messages = ThemeManager().apply_recommended_config(config_file, install_missing=True)
+            ok, messages = ThemeManager().apply_recommended_config(config_file, install_missing=True)
             for msg in messages:
-                if "✅" in msg:   log_success(msg)
-                elif "❌" in msg: log_error(msg)
-                elif "⚠️" in msg: log_warn(msg)
-                else:             log_info(msg)
+                if msg.startswith("[OK]") or "installe" in msg.lower():
+                    log_success(msg)
+                elif msg.startswith("[ERROR]") or "echec" in msg.lower():
+                    log_error(msg)
+                elif msg.startswith("[WARN]"):
+                    log_warn(msg)
+                else:
+                    log_info(msg)
                 with task_lock:
                     prog = current_task.get("progress", 20)
                 if prog < 90:
                     update_task_status("Config themes recommandee", True, prog + 10)
                     time.sleep(0.2)
-            if success:
+            if ok:
                 log_success("Config themes appliquee")
                 update_task_status("Config terminee", False, 100)
             else:

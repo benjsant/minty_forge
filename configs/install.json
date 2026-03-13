@@ -23,7 +23,7 @@
     { "name": "plymouth-themes", "description": "Themes for boot splash screen" },
     { "name": "weston", "description": "Reference Wayland compositor" },
     { "name": "sassc", "description": "SASS compiler" },
-    { "name": "ttf-mscorefonts-installer", "description": "Microsoft TrueType core fonts" },
+
     { "name": "fonts-firacode", "description": "Fira Code programming font" },
     { "name": "fonts-dejavu", "description": "DejaVu font family" },
     { "name": "crudini", "description": "tool for some ini file " },

@@ -35,13 +35,12 @@ logger = logging.getLogger("mintyforge")
 
 
 def log_info(msg):    logger.info(msg)
-def log_success(msg): logger.info(f"✅ {msg}")
-def log_warn(msg):    logger.warning(f"⚠️ {msg}")
-def log_error(msg):   logger.error(f"❌ {msg}")
+def log_success(msg): logger.info(f"[OK] {msg}")
+def log_warn(msg):    logger.warning(f"[WARN] {msg}")
+def log_error(msg):   logger.error(f"[ERROR] {msg}")
 
 
 def notify_desktop(title, message=""):
-    """Envoie une notification bureau via notify-send (silencieux si absent)."""
     try:
         subprocess.run(
             ["notify-send", "-a", "MintyForge", "-i", "dialog-information", title, message],
@@ -68,7 +67,7 @@ def set_current_process(proc):
 
 
 def cancel_current_task():
-    """Tue le processus en cours. Retourne True si un processus a ete tue."""
+    """Tue le processus en cours."""
     global _current_process
     with _process_lock:
         if _current_process and _current_process.poll() is None:

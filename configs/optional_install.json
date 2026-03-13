@@ -1,0 +1,22 @@
+{
+  "packages": [
+    { "name": "hplip", "description": "Support imprimantes HP" },
+    { "name": "hplip-gui", "description": "Interface graphique HP" },
+    { "name": "printer-driver-gutenprint", "description": "Pilotes imprimantes generiques" },
+    { "name": "ttf-mscorefonts-installer", "description": "Polices Microsoft (Arial, Times, etc.)" },
+    { "name": "fonts-crosextra-carlito", "description": "Police compatible Calibri" },
+    { "name": "fonts-crosextra-caladea", "description": "Police compatible Cambria" },
+    { "name": "fonts-liberation2", "description": "Polices Liberation (compatibles MS Office)" },
+    { "name": "libreoffice-l10n-fr", "description": "Traduction francaise LibreOffice" },
+    { "name": "hunspell-fr", "description": "Correcteur orthographique francais" },
+    { "name": "mythes-fr", "description": "Synonymes francais pour LibreOffice" },
+    { "name": "simple-scan", "description": "Numerisation simple" },
+    { "name": "cheese", "description": "Test webcam" },
+    { "name": "gnome-sound-recorder", "description": "Enregistreur audio" },
+    { "name": "solaar", "description": "Gestionnaire peripheriques Logitech" },
+    { "name": "blueman", "description": "Gestionnaire Bluetooth" },
+    { "name": "network-manager-openvpn-gnome", "description": "Plugin VPN OpenVPN" },
+    { "name": "usb-creator-gtk", "description": "Createur de cle USB bootable" },
+    { "name": "gnome-disk-utility", "description": "Utilitaire de disques" }
+  ]
+}

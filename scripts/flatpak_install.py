@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-MintyForge - Flatpak Installer
----------------------------------
-Installs all Flatpak apps defined in configs/flatpak.json.
-Called by the Flask web interface.
-
-Security: Uses secure subprocess calls without shell=True
-"""
+"""Installe les Flatpaks definis dans configs/flatpak.json."""
 
 import sys
 import json
@@ -23,21 +16,20 @@ from utils import (
 CONFIG_FILE = Path(__file__).parent.parent / "configs/flatpak.json"
 
 
-def install_single_flatpak(flatpak: dict):
-    """Install a single Flatpak app."""
+def install_single_flatpak(flatpak):
     app = flatpak.get("app")
     source = flatpak.get("source", "flathub")
     desc = flatpak.get("description", "")
 
     if not app:
-        warn("Empty Flatpak ID, skipping.")
+        warn("ID Flatpak vide, ignore.")
         return
 
     if check_flatpak_installed(app):
-        warn(f"{app} is already installed, skipping.")
+        warn(f"{app} deja installe, ignore.")
         return
 
-    info(f"Installing {app} - {desc} from {source}...")
+    info(f"Installation de {app} - {desc} depuis {source}...")
     result = flatpak_install(app, remote=source)
 
     get_state_manager().record(
@@ -49,34 +41,33 @@ def install_single_flatpak(flatpak: dict):
     )
 
     if result.success:
-        success(f"{app} installed successfully.")
+        success(f"{app} installe.")
     else:
-        warn(f"Failed to install {app}.")
+        warn(f"Echec installation de {app}.")
 
 
-def install_all_flatpaks(flatpaks: list[dict]):
-    """Install all Flatpaks from the list."""
-    info("Starting installation of all Flatpaks...")
+def install_all_flatpaks(flatpaks):
+    info("Installation des Flatpaks...")
     for flatpak in flatpaks:
         install_single_flatpak(flatpak)
-    success("All Flatpaks processed.")
+    success("Tous les Flatpaks traites.")
 
 
 def main():
     if not CONFIG_FILE.exists():
-        error(f"{CONFIG_FILE} not found.")
+        error(f"{CONFIG_FILE} introuvable.")
         return
 
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        error(f"Invalid JSON in {CONFIG_FILE}: {e}")
+        error(f"JSON invalide dans {CONFIG_FILE}: {e}")
         return
 
     flatpaks = data.get("flatpaks", [])
     if not flatpaks:
-        warn("No Flatpaks found in config.")
+        warn("Aucun Flatpak dans la config.")
         return
 
     install_all_flatpaks(flatpaks)

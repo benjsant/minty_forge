@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-MintyForge - APT Remover
---------------------------
-Removes unwanted APT packages defined in configs/remove.json.
-Called by the Flask web interface.
-
-Security: Uses secure subprocess calls without shell=True
-"""
+"""Supprime les paquets APT definis dans configs/remove.json."""
 
 import sys
 import json
@@ -23,17 +16,16 @@ from utils import (
 CONFIG_FILE = Path(__file__).parent.parent / "configs/remove.json"
 
 
-def remove_single_package(pkg: dict):
-    """Remove a single package."""
+def remove_single_package(pkg):
     name = pkg.get("name")
     desc = pkg.get("description", "")
     if not name:
-        warn("Empty package name, skipping.")
+        warn("Nom de paquet vide, ignore.")
         return
 
-    info(f"Checking {name}...")
+    info(f"Verification de {name}...")
     if check_package_installed(name):
-        info(f"Removing {name} ({desc})...")
+        info(f"Suppression de {name} ({desc})...")
         result = apt_remove([name], purge=True)
 
         get_state_manager().record(
@@ -45,39 +37,36 @@ def remove_single_package(pkg: dict):
         )
 
         if result.success:
-            success(f"{name} removed successfully.")
+            success(f"{name} supprime.")
         else:
-            warn(f"Failed to remove {name}.")
+            warn(f"Echec suppression de {name}.")
     else:
-        warn(f"{name} not installed, skipping.")
+        warn(f"{name} pas installe, ignore.")
 
 
-def remove_all_packages(packages: list[dict]):
-    """Remove all packages from the config."""
-    info("Removing all unwanted packages...")
-
+def remove_all_packages(packages):
+    info("Suppression des paquets indesirables...")
     for pkg in packages:
         remove_single_package(pkg)
-
     run_sudo_command(["apt", "autoremove", "-y"])
-    success("All unwanted packages removed.")
+    success("Nettoyage termine.")
 
 
 def main():
     if not CONFIG_FILE.exists():
-        error(f"{CONFIG_FILE} not found.")
+        error(f"{CONFIG_FILE} introuvable.")
         return
 
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        error(f"Invalid JSON in {CONFIG_FILE}: {e}")
+        error(f"JSON invalide dans {CONFIG_FILE}: {e}")
         return
 
     packages = data.get("packages", [])
     if not packages:
-        warn("No packages found in config.")
+        warn("Aucun paquet dans la config.")
         return
 
     remove_all_packages(packages)

@@ -14,9 +14,15 @@
                 <h1>MintyForge</h1>
                 <p>Installation automatisee pour Linux Mint</p>
             </div>
-            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Basculer clair/sombre">
-                <span id="themeIcon">🌙</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Basculer clair/sombre">
+                    <span id="themeIcon">🌙</span>
+                </button>
+                <button class="btn-small" onclick="quitApp()" title="Quitter MintyForge"
+                        style="border-color: var(--danger); color: var(--danger); font-size: 0.85em;">
+                    Quitter
+                </button>
+            </div>
         </div>
 
         <div class="status-bar" id="statusBar">
@@ -35,6 +41,10 @@
             <div class="status-item">
                 <h3>APT</h3>
                 <div class="value" id="count-apt">0</div>
+            </div>
+            <div class="status-item">
+                <h3>Optionnel</h3>
+                <div class="value" id="count-optional">0</div>
             </div>
             <div class="status-item">
                 <h3>Flatpaks</h3>
@@ -86,6 +96,25 @@
             <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 8px; text-align: center;">
                 Pour choisir paquet par paquet : cliquer "Detail" sur un profil, cocher/decocher, puis "Installer la selection".
             </p>
+        </div>
+
+        <!-- Paquets optionnels -->
+        <div class="profiles-section" id="optionalSection">
+            <div class="profiles-header">
+                <h2>Paquets optionnels</h2>
+                <div class="profiles-actions">
+                    <button class="btn-small" onclick="loadOptionalPackages()">Rafraichir</button>
+                </div>
+            </div>
+            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
+                Paquets pratiques mais non essentiels : imprimantes HP, polices Microsoft, outils divers.
+            </p>
+            <div id="optionalGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                <div style="color: var(--text-muted);">Chargement...</div>
+            </div>
+            <button class="install-profiles-btn" onclick="installOptional()" style="font-size: 1em; padding: 14px;">
+                Installer tous les paquets optionnels
+            </button>
         </div>
 
         <!-- Catalogue de themes -->

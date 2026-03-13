@@ -21,7 +21,7 @@ Le script gère tout automatiquement :
 5. Désactive la mise en veille et le verrouillage écran
 6. Lance Flask et ouvre `http://localhost:5000`
 
-**Arrêt :** `CTRL+C` — la veille est restaurée automatiquement.
+**Arrêt :** bouton "Quitter" dans l'interface ou `CTRL+C` — la veille est restaurée automatiquement.
 
 ---
 
@@ -57,6 +57,12 @@ Sélectionnez un ou plusieurs profils, lancez un **dry-run** pour prévisualiser
 | **Système** | gparted, timeshift, kdeconnect, scrcpy, blueman |
 
 Le profil GPU opposé au matériel détecté est affiché avec un cadenas — l'utilisateur peut forcer l'installation après confirmation.
+
+### Paquets optionnels
+
+Section dédiée aux paquets pratiques mais non essentiels : support imprimantes HP (hplip), polices Microsoft et compatibles Office, traduction et correcteur LibreOffice FR, outils de numérisation, gestionnaire Bluetooth, VPN, etc.
+
+Chaque paquet affiche son statut d'installation. L'installation se fait en un clic pour l'ensemble ou individuellement via les profils.
 
 ### Catalogue de thèmes
 
@@ -95,7 +101,7 @@ minty_forge/
 ├── uv.lock                  # Lock file reproductible
 ├── routes/
 │   ├── shared.py            # État partagé : logs SSE, task lock
-│   ├── legacy.py            # /api/status, /api/logs, /api/execute, /api/task
+│   ├── legacy.py            # /api/status, /api/logs, /api/execute, /api/quit
 │   ├── profiles.py          # /api/profiles — installation par profil
 │   ├── dconf.py             # /api/dconf — paramètres gsettings + mode sombre
 │   ├── themes.py            # /api/themes — catalogue et installation de thèmes
@@ -111,9 +117,19 @@ minty_forge/
 │   └── validation.py        # Validation Pydantic des configs
 ├── schemas/                 # Modèles Pydantic (packages, profils, thèmes…)
 ├── scripts/
-│   └── profile_install.py   # Installation d'un profil (APT + Flatpak + External)
+│   ├── apt_install.py       # Installation paquets APT
+│   ├── apt_remove.py        # Suppression paquets APT
+│   ├── optional_install.py  # Installation paquets optionnels
+│   ├── flatpak_install.py   # Installation Flatpaks
+│   ├── external_install.py  # Installation paquets externes (commandes bash)
+│   └── profile_install.py   # Installation d'un profil complet
 ├── configs/
 │   ├── profiles/            # Profils d'installation (*.json)
+│   ├── install.json         # Paquets APT essentiels
+│   ├── optional_install.json # Paquets APT optionnels
+│   ├── remove.json          # Paquets à supprimer
+│   ├── flatpak.json         # Applications Flatpak
+│   ├── external_packages.json # Paquets avec commandes custom
 │   ├── themes_gtk.json      # Catalogue thèmes GTK
 │   ├── themes_icons.json    # Catalogue thèmes icônes
 │   └── themes_cursors.json  # Catalogue thèmes curseurs
@@ -168,7 +184,12 @@ Le profil apparaît automatiquement sans redémarrer le serveur.
 | GET | `/api/status` | État système (internet, sudo, disque, outils) |
 | GET | `/api/logs/stream` | Logs en temps réel (SSE) |
 | GET | `/api/logs/history` | Dernières 300 lignes du log |
+| POST | `/api/logs/clear` | Vider les logs |
 | POST | `/api/task/cancel` | Annuler la tâche en cours |
+| POST | `/api/quit` | Arrêter le serveur |
+| POST | `/api/execute/<action>` | Lancer une action (apt_install, optional_install, flatpak_install…) |
+| POST | `/api/execute/all` | Installation complète séquentielle |
+| GET | `/api/optional/list` | Paquets optionnels avec statut installé |
 | GET | `/api/profiles` | Liste des profils (avec détection GPU) |
 | POST | `/api/profiles/install` | Installer des profils complets |
 | POST | `/api/profiles/install-custom` | Installer une sélection de paquets |
@@ -177,7 +198,8 @@ Le profil apparaît automatiquement sans redémarrer le serveur.
 | POST | `/api/themes/install` | Installer un thème depuis git |
 | GET | `/api/dconf/options` | Thèmes installés + paramètres actuels |
 | POST | `/api/dconf/apply` | Appliquer des paramètres via gsettings |
-| POST | `/api/dconf/dark-mode` | Basculer mode sombre/clair (theme + color-scheme) |
+| POST | `/api/dconf/dark-mode` | Basculer mode sombre/clair |
+| GET | `/api/dconf/export` | Exporter sauvegarde dconf |
 | GET | `/api/greeter/status` | Configuration slick-greeter actuelle |
 | POST | `/api/greeter/sync` | Synchroniser greeter depuis le bureau |
 | GET | `/api/system/firewall` | État du pare-feu ufw |
@@ -186,6 +208,9 @@ Le profil apparaît automatiquement sans redémarrer le serveur.
 | GET | `/api/state` | Historique des actions |
 | POST | `/api/state/rollback/last` | Annuler la dernière action |
 | POST | `/api/state/rollback/all` | Annuler toutes les actions |
+| DELETE | `/api/state/clear` | Effacer l'historique |
+| GET | `/api/theme/status` | État config thèmes recommandée |
+| POST | `/api/theme/apply_recommended` | Appliquer config recommandée |
 
 ---
 

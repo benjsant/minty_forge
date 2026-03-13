@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Installe les paquets APT definis dans configs/install.json."""
+"""Installe les paquets optionnels (configs/optional_install.json)."""
 
 import sys
 from pathlib import Path
@@ -13,7 +13,7 @@ from utils import (
     get_state_manager, ACTION_APT_INSTALL
 )
 
-CONFIG_FILE = Path(__file__).parent.parent / "configs/install.json"
+CONFIG_FILE = Path(__file__).parent.parent / "configs/optional_install.json"
 
 
 def install_single_package(pkg):
@@ -37,20 +37,13 @@ def install_single_package(pkg):
         target=name,
         success=result.success,
         rollback_cmd=["apt", "remove", "-y", name],
-        metadata={"description": desc},
+        metadata={"description": desc, "optional": True},
     )
 
     if result.success:
         success(f"{name} installe.")
     else:
         warn(f"Echec installation de {name}.")
-
-
-def install_all_packages(packages):
-    info("Installation des paquets...")
-    for pkg in packages:
-        install_single_package(pkg)
-    success("Tous les paquets traites.")
 
 
 def main():
@@ -65,10 +58,13 @@ def main():
         return
 
     if not packages:
-        warn("Aucun paquet dans la config.")
+        warn("Aucun paquet optionnel dans la config.")
         return
 
-    install_all_packages(packages)
+    info("Installation des paquets optionnels...")
+    for pkg in packages:
+        install_single_package(pkg)
+    success("Paquets optionnels traites.")
 
 
 if __name__ == "__main__":

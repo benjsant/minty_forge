@@ -1,65 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-MintyForge - Package Schemas
------------------------------
-Pydantic models for APT packages (install.json, remove.json).
-"""
+"""Schemas Pydantic pour les paquets APT."""
 
-from typing import List
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class Package(BaseModel):
-    """Base model for a package (APT, etc.)."""
-    
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_default=True,
-        extra='forbid'  # Forbid extra fields not in model
-    )
-    
-    name: str = Field(
-        ...,
-        min_length=1,
-        description="Package name (cannot be empty)"
-    )
-    description: str = Field(
-        default="",
-        description="Package description"
-    )
-    
+    model_config = ConfigDict(str_strip_whitespace=True, extra='forbid')
+
+    name: str = Field(..., min_length=1)
+    description: str = ""
+
     @field_validator('name')
     @classmethod
-    def validate_name(cls, v: str) -> str:
-        """Validate package name."""
+    def validate_name(cls, v):
         if not v or v.isspace():
-            raise ValueError("Package name cannot be empty or whitespace only")
+            raise ValueError("Nom de paquet vide")
         return v.strip()
 
 
 class PackageList(BaseModel):
-    """List of packages for install.json and remove.json."""
-    
     model_config = ConfigDict(str_strip_whitespace=True, extra='forbid')
-    
-    packages: List[Package] = Field(
-        ...,
-        min_length=1,
-        description="List of packages (must contain at least one)"
-    )
-    
+
+    packages: list[Package] = Field(..., min_length=1)
+
     @field_validator('packages')
     @classmethod
-    def validate_unique_names(cls, v: List[Package]) -> List[Package]:
-        """Ensure package names are unique."""
+    def validate_unique_names(cls, v):
         names = [pkg.name for pkg in v]
-        duplicates = [name for name in names if names.count(name) > 1]
-        
-        if duplicates:
-            unique_dupes = list(set(duplicates))
-            raise ValueError(
-                f"Duplicate package names found: {', '.join(unique_dupes)}"
-            )
-        
+        dupes = [n for n in names if names.count(n) > 1]
+        if dupes:
+            raise ValueError(f"Noms en double : {', '.join(set(dupes))}")
         return v

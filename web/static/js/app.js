@@ -47,6 +47,7 @@
             loadTheme();
             updateStatus();
             loadProfiles();
+            loadOptionalPackages();
             loadThemeCatalog();
             loadDconfOptions();
             loadHistory();
@@ -90,6 +91,7 @@
                         warn.style.display = 'none';
                     }
                     document.getElementById('count-apt').textContent = data.packages.apt || 0;
+                    document.getElementById('count-optional').textContent = data.packages.optional || 0;
                     document.getElementById('count-flatpak').textContent = data.packages.flatpak || 0;
                     const totalThemes = (data.packages.themes_gtk || 0) + (data.packages.themes_icons || 0) + (data.packages.themes_cursors || 0);
                     document.getElementById('count-themes').textContent = totalThemes;
@@ -147,7 +149,7 @@
                 // Quand une tache vient de finir
                 if (wasRunning) {
                     loadHistory();
-                    // Auto-refresh catalogue si c'etait un install de theme
+                    loadOptionalPackages();
                     if (_themeInstallPending) {
                         _themeInstallPending = false;
                         setTimeout(() => loadThemeCatalog(), 500);
@@ -510,6 +512,58 @@
             loadThemeCatalog();
             // Recharge les selects de themes dans la section bureau (nouveaux themes detectes)
             loadDconfOptions();
+        }
+
+        // --- Paquets optionnels ---
+        function loadOptionalPackages() {
+            const grid = document.getElementById('optionalGrid');
+            grid.innerHTML = '<div style="color: var(--text-muted);">Chargement...</div>';
+            fetch('/api/optional/list')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.packages || data.packages.length === 0) {
+                        grid.innerHTML = '<div style="color: var(--text-muted);">Aucun paquet optionnel configure.</div>';
+                        return;
+                    }
+                    grid.innerHTML = data.packages.map(pkg => {
+                        const status = pkg.installed
+                            ? '<span style="color: var(--success); font-weight: bold;">installe</span>'
+                            : '<span style="color: var(--text-muted);">non installe</span>';
+                        return `<div style="background: var(--light); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border);">
+                            <div style="font-weight: 600; font-size: 0.92em;">${esc(pkg.name)}</div>
+                            <div style="font-size: 0.82em; color: var(--text-muted);">${esc(pkg.description)}</div>
+                            <div style="font-size: 0.8em; margin-top: 4px;">${status}</div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {
+                    grid.innerHTML = '<div style="color: var(--danger);">Erreur de chargement.</div>';
+                });
+        }
+
+        function installOptional() {
+            if (isTaskRunning) { showToast('Une tache est deja en cours', 'warning'); return; }
+            showConfirm('Paquets optionnels', 'Installer tous les paquets optionnels non presents ?', () => {
+                fetch('/api/execute/optional_install', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) showToast('Installation optionnelle lancee', 'success');
+                        else showToast(data.error || 'Erreur', 'error');
+                    })
+                    .catch(() => showToast('Erreur reseau', 'error'));
+            });
+        }
+
+        function quitApp() {
+            showConfirm('Quitter', 'Fermer MintyForge ?', () => {
+                fetch('/api/quit', { method: 'POST' })
+                    .then(() => {
+                        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666;"><div style="text-align:center;"><h2>MintyForge ferme.</h2><p>Vous pouvez fermer cet onglet.</p></div></div>';
+                    })
+                    .catch(() => {
+                        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666;"><div style="text-align:center;"><h2>MintyForge ferme.</h2><p>Vous pouvez fermer cet onglet.</p></div></div>';
+                    });
+            });
         }
 
         function loadThemeCatalog() {
