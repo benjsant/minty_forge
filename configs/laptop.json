@@ -1,0 +1,59 @@
+{
+  "tlp": {
+    "packages": ["tlp", "tlp-rdw"],
+    "remove_conflicts": ["power-profiles-daemon"],
+    "config": {
+      "CPU_SCALING_GOVERNOR_ON_AC": "performance",
+      "CPU_SCALING_GOVERNOR_ON_BAT": "powersave",
+      "CPU_ENERGY_PERF_POLICY_ON_AC": "balance_performance",
+      "CPU_ENERGY_PERF_POLICY_ON_BAT": "power",
+      "WIFI_PWR_ON_AC": "off",
+      "WIFI_PWR_ON_BAT": "on",
+      "RUNTIME_PM_ON_AC": "on",
+      "RUNTIME_PM_ON_BAT": "auto",
+      "USB_AUTOSUSPEND": 1,
+      "PCIE_ASPM_ON_AC": "default",
+      "PCIE_ASPM_ON_BAT": "powersupersave"
+    }
+  },
+  "monitoring": {
+    "packages": [
+      { "name": "lm-sensors", "description": "Capteurs temperature CPU/GPU" },
+      { "name": "smartmontools", "description": "Sante SSD/HDD (SMART)" },
+      { "name": "acpi", "description": "Infos batterie et alimentation" },
+      { "name": "powertop", "description": "Analyse consommation energetique" },
+      { "name": "inxi", "description": "Informations systeme detaillees" },
+      { "name": "mesa-utils", "description": "Infos GPU (glxinfo)" },
+      { "name": "nvme-cli", "description": "Gestion et sante SSD NVMe" }
+    ]
+  },
+  "dock": {
+    "description": "Configure le comportement capot ferme pour usage dock (ecran externe, clavier, souris)",
+    "logind_settings": {
+      "HandleLidSwitch": "suspend",
+      "HandleLidSwitchExternalPower": "ignore",
+      "HandleLidSwitchDocked": "ignore"
+    }
+  },
+  "thermal": {
+    "services": [
+      { "name": "bluetooth.service", "description": "Bluetooth (desactiver si non utilise)" },
+      { "name": "cups.service", "description": "Impression (desactiver si non utilise)" },
+      { "name": "cups-browsed.service", "description": "Decouverte imprimantes reseau" },
+      { "name": "avahi-daemon.service", "description": "Decouverte reseau mDNS/DNS-SD" },
+      { "name": "ModemManager.service", "description": "Gestion modems mobiles" }
+    ]
+  },
+  "checks": [
+    { "name": "CPU", "cmd": "lscpu | grep 'Model name'", "live_usb": true },
+    { "name": "RAM", "cmd": "free -h | grep Mem", "live_usb": true },
+    { "name": "SSD NVMe", "cmd": "lsblk -d -o NAME,SIZE,MODEL,TRAN | grep -i nvme", "live_usb": true },
+    { "name": "GPU", "cmd": "lspci | grep -i vga", "live_usb": true },
+    { "name": "Ecrans", "cmd": "xrandr --query 2>/dev/null | grep ' connected'", "live_usb": true },
+    { "name": "WiFi", "cmd": "nmcli -t -f SSID,SIGNAL dev wifi list 2>/dev/null | head -5", "live_usb": true },
+    { "name": "Batterie", "cmd": "acpi -V 2>/dev/null | head -5 || cat /sys/class/power_supply/BAT*/capacity 2>/dev/null", "live_usb": false },
+    { "name": "Temperature", "cmd": "sensors 2>/dev/null | grep -E '(Core|temp|Tctl)' | head -10", "live_usb": false },
+    { "name": "Sante SSD", "cmd": "sudo smartctl -H /dev/nvme0n1 2>/dev/null | grep -i 'health\\|result'", "live_usb": false },
+    { "name": "Consommation", "cmd": "powertop --csv=/tmp/powertop.csv --time=3 2>/dev/null && head -20 /tmp/powertop.csv || echo 'powertop requis'", "live_usb": false }
+  ]
+}

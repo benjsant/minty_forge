@@ -100,6 +100,7 @@ ok "Acces sudo"
 _MISSING_PKGS=()
 command -v crudini &>/dev/null || _MISSING_PKGS+=("crudini")
 command -v sassc   &>/dev/null || _MISSING_PKGS+=("sassc")
+command -v acpi    &>/dev/null || _MISSING_PKGS+=("acpi")
 if [ ${#_MISSING_PKGS[@]} -gt 0 ]; then
     info "Installation des outils requis : ${_MISSING_PKGS[*]}..."
     sudo apt install -y "${_MISSING_PKGS[@]}" -qq \
