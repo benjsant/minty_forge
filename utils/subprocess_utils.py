@@ -59,7 +59,21 @@ def check_command_exists(command):
     return run_command(["which", command], capture_output=True).success
 
 
+def _accept_msfonts_eula():
+    """Pre-accepte la licence Microsoft pour ttf-mscorefonts-installer (evite le prompt interactif)."""
+    run_command(
+        ["sudo", "-n", "bash", "-c",
+         "echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections"],
+    )
+
+
+# Paquets qui declenchent le prompt EULA des polices Microsoft
+_MSFONTS_TRIGGERS = {"ubuntu-restricted-extras", "ttf-mscorefonts-installer", "kubuntu-restricted-extras", "xubuntu-restricted-extras"}
+
+
 def apt_install(packages, assume_yes=True):
+    if _MSFONTS_TRIGGERS.intersection(packages):
+        _accept_msfonts_eula()
     cmd = ["apt", "install"]
     if assume_yes:
         cmd.append("-y")
