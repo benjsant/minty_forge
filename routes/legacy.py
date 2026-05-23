@@ -17,7 +17,8 @@ from utils.theme_manager import ThemeManager
 from routes.shared import (
     log_info, log_success, log_warn, log_error,
     log_queue, current_task, task_lock,
-    update_task_status, run_script, cancel_current_task
+    update_task_status, run_script, cancel_current_task,
+    subscribe_task_events, unsubscribe_task_events,
 )
 
 bp = Blueprint("legacy", __name__)
@@ -128,6 +129,28 @@ def stream_logs():
                     yield ": keepalive\n\n"
         except GeneratorExit:
             pass
+    return Response(generate(), mimetype='text/event-stream')
+
+
+@bp.route('/api/task/stream')
+def stream_task():
+    """Flux SSE de l'etat de la tache courante (running, name, progress)."""
+    q = subscribe_task_events()
+    initial = json.dumps(dict(current_task))
+
+    def generate():
+        try:
+            yield f"data: {initial}\n\n"
+            while True:
+                try:
+                    ev = q.get(timeout=15)
+                    yield f"data: {json.dumps(ev)}\n\n"
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            unsubscribe_task_events(q)
     return Response(generate(), mimetype='text/event-stream')
 
 

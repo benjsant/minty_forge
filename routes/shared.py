@@ -14,6 +14,36 @@ task_lock = threading.Lock()
 _current_process = None
 _process_lock = threading.Lock()
 
+# Diffusion d'evenements de tache aux abonnes SSE (un Queue par client connecte).
+_task_subscribers = []
+_task_subscribers_lock = threading.Lock()
+
+
+def subscribe_task_events():
+    q = queue.Queue(maxsize=100)
+    with _task_subscribers_lock:
+        _task_subscribers.append(q)
+    return q
+
+
+def unsubscribe_task_events(q):
+    with _task_subscribers_lock:
+        try:
+            _task_subscribers.remove(q)
+        except ValueError:
+            pass
+
+
+def _broadcast_task():
+    with task_lock:
+        snapshot = dict(current_task)
+    with _task_subscribers_lock:
+        for q in list(_task_subscribers):
+            try:
+                q.put_nowait(snapshot)
+            except queue.Full:
+                pass
+
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -56,6 +86,7 @@ def update_task_status(name, running, progress=0):
         current_task["name"] = name
         current_task["running"] = running
         current_task["progress"] = progress
+    _broadcast_task()
     if was_running and not running and progress == 100:
         notify_desktop("Termine", name)
 

@@ -1,6 +1,8 @@
         let isTaskRunning = false;
         let _themeInstallPending = false;
         let eventSource = null;
+        let taskEventSource = null;
+        let _taskStreamConnected = false;
         let selectedProfiles = new Set();
         let profilesData = {};
         let autoScroll = true;
@@ -49,14 +51,16 @@
             loadProfiles();
             loadOptionalPackages();
             loadThemeCatalog();
-            loadDconfOptions();
             loadHistory();
             loadFirewall();
             loadGreeterStatus();
             detectLaptop();
             connectLogs();
+            connectTaskStream();
             loadLogsHistory();
             setInterval(updateStatus, 5000);
+            // Rafraichissement batterie toutes les 30 s
+            setInterval(detectLaptop, 30000);
         });
 
         // Theme
@@ -101,7 +105,9 @@
                     const diskItem = document.getElementById('status-disk');
                     diskItem.classList.toggle('ok', disk > 5);
                     diskItem.classList.toggle('error', disk !== undefined && disk <= 5);
-                    updateTaskStatus(data.task);
+                    // L'etat de tache arrive desormais via SSE (connectTaskStream),
+                    // mais on garde un fallback sur /api/status au cas ou le flux est coupe.
+                    if (!_taskStreamConnected) updateTaskStatus(data.task);
                 })
                 .catch(err => console.error('Status error:', err));
         }
@@ -160,7 +166,7 @@
         }
 
         function setAllButtons(disabled) {
-            document.querySelectorAll('.big-button, .install-profiles-btn, .dconf-section button, .history-toolbar button').forEach(btn => {
+            document.querySelectorAll('.big-button, .install-profiles-btn, .history-toolbar button').forEach(btn => {
                 btn.disabled = disabled;
             });
             // Desactiver aussi les boutons du catalogue de themes
@@ -479,6 +485,24 @@
             };
         }
 
+        // Task progress SSE (remplace le polling /api/status pour la tache)
+        function connectTaskStream() {
+            if (taskEventSource) { try { taskEventSource.close(); } catch (e) {} }
+            taskEventSource = new EventSource('/api/task/stream');
+            taskEventSource.onopen = () => { _taskStreamConnected = true; };
+            taskEventSource.onmessage = (event) => {
+                try {
+                    const task = JSON.parse(event.data);
+                    updateTaskStatus(task);
+                } catch (e) { /* keepalive ou JSON invalide */ }
+            };
+            taskEventSource.onerror = () => {
+                _taskStreamConnected = false;
+                try { taskEventSource.close(); } catch (e) {}
+                setTimeout(connectTaskStream, 5000);
+            };
+        }
+
         function clearLogs() {
             document.getElementById('logsContainer').innerHTML = '';
             fetch('/api/logs/clear', { method: 'POST' });
@@ -498,9 +522,6 @@
             if (autoScroll) container.scrollTop = container.scrollHeight;
         }
 
-        // Dconf builder
-        let dconfCurrent = {};
-
         // =============================================
         // CATALOGUE DE THEMES
         // =============================================
@@ -509,10 +530,7 @@
 
         function reloadAllThemes() {
             showToast('Rechargement des themes...', 'info');
-            // Recharge le catalogue (statut installe/non installe)
             loadThemeCatalog();
-            // Recharge les selects de themes dans la section bureau (nouveaux themes detectes)
-            loadDconfOptions();
         }
 
         // --- Paquets optionnels ---
@@ -585,7 +603,7 @@
             _currentThemeTab = type;
             ['gtk', 'icon', 'cursor'].forEach(t => {
                 const btn = document.getElementById('themeTab' + t.charAt(0).toUpperCase() + t.slice(1));
-                if (btn) btn.style.borderColor = (t === type) ? 'var(--primary)' : '';
+                if (btn) btn.classList.toggle('theme-tab-active', t === type);
             });
             renderThemeTab(type);
         }
@@ -754,318 +772,6 @@
                 }
             );
         }
-
-        function loadDconfOptions() {
-            fetch('/api/dconf/options')
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return;
-                    dconfCurrent = data.current;
-                    const grid = document.getElementById('dconfGrid');
-                    grid.innerHTML = '';
-
-                    const isDark = data.current.color_scheme === 'prefer-dark';
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Mode couleur</h3>
-                            <p style="font-size:0.8em; color:var(--text-muted); margin-bottom:10px;">
-                                Bascule color-scheme, theme GTK, theme Cinnamon (shell) et WM simultanement.
-                            </p>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn-small" id="btnLightMode"
-                                    style="${!isDark ? 'border-color:var(--primary);color:var(--primary);' : ''}"
-                                    onclick="applyDarkMode(false)">
-                                    Clair (Light)
-                                </button>
-                                <button class="btn-small" id="btnDarkMode"
-                                    style="${isDark ? 'border-color:var(--primary);color:var(--primary);' : ''}"
-                                    onclick="applyDarkMode(true)">
-                                    Sombre (Dark)
-                                </button>
-                            </div>
-                        </div>
-                    `;
-
-                    grid.innerHTML += buildSelectGroup('Themes', [
-                        {id: 'gtk_theme', label: 'Theme GTK', options: data.themes.gtk, current: data.current.gtk_theme},
-                        {id: 'icon_theme', label: 'Theme Icones', options: data.themes.icon, current: data.current.icon_theme},
-                        {id: 'cursor_theme', label: 'Theme Curseur', options: data.themes.cursor, current: data.current.cursor_theme},
-                        {id: 'cinnamon_theme', label: 'Theme Cinnamon (shell)', options: data.themes.gtk, current: data.current.cinnamon_theme},
-                        {id: 'wm_theme', label: 'Theme WM (titrebars)', options: data.themes.gtk, current: data.current.wm_theme},
-                    ]);
-
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Polices et Bureau</h3>
-                            <div class="dconf-field">
-                                <label>Police principale</label>
-                                <input type="text" id="dconf_font_name" value="${esc(data.current.font_name)}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Police titres de fenetres</label>
-                                <input type="text" id="dconf_titlebar_font" value="${esc(data.current.titlebar_font)}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Nombre d'espaces de travail</label>
-                                <input type="number" id="dconf_num_workspaces" min="1" max="12" value="${data.current.num_workspaces || 4}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Disposition boutons fenetres</label>
-                                <select id="dconf_button_layout">
-                                    <option value=":minimize,maximize,close" ${data.current.button_layout === ':minimize,maximize,close' ? 'selected' : ''}>Droite (Linux)</option>
-                                    <option value="close,minimize,maximize:" ${data.current.button_layout === 'close,minimize,maximize:' ? 'selected' : ''}>Gauche (macOS)</option>
-                                </select>
-                            </div>
-                        </div>
-                    `;
-
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Parametres systeme</h3>
-                            ${buildToggle('dconf_night_light', 'Veilleuse (Night Light)', data.current.night_light_enabled === 'true')}
-                            <div class="dconf-field">
-                                <label>Mode veilleuse</label>
-                                <select id="dconf_night_light_schedule">
-                                    <option value="always" ${data.current.night_light_schedule === 'always' ? 'selected' : ''}>Toujours active</option>
-                                    <option value="sunset-to-sunrise" ${data.current.night_light_schedule === 'sunset-to-sunrise' ? 'selected' : ''}>Coucher au lever du soleil</option>
-                                    <option value="manual" ${data.current.night_light_schedule === 'manual' ? 'selected' : ''}>Plages horaires manuelles</option>
-                                </select>
-                            </div>
-                            <div class="dconf-field" id="nightLightTempField">
-                                <label>Temperature veilleuse (K)</label>
-                                <input type="number" id="dconf_night_light_temp" min="1700" max="6500" step="100"
-                                       value="${data.current.night_light_temp ? data.current.night_light_temp.replace('uint32 ', '') : 2700}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Delai economiseur d'ecran (s, 0 = jamais)</label>
-                                <input type="number" id="dconf_idle_delay" min="0" step="60"
-                                       value="${data.current.idle_delay ? data.current.idle_delay.replace('uint32 ', '') : 0}">
-                            </div>
-                            ${buildToggle('dconf_lock_enabled', 'Verrouillage ecran', data.current.lock_enabled === 'true')}
-                            ${buildToggle('dconf_event_sounds', 'Sons systeme', data.current.event_sounds === 'true')}
-                            ${buildToggle('dconf_show_hidden', 'Afficher fichiers caches (Nemo)', data.current.show_hidden_files === 'true')}
-                        </div>
-                    `;
-
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Icones du bureau</h3>
-                            ${buildToggle('dconf_icon_home', 'Dossier personnel', data.current.desktop_icons_home === 'true')}
-                            ${buildToggle('dconf_icon_trash', 'Corbeille', data.current.desktop_icons_trash === 'true')}
-                            ${buildToggle('dconf_icon_computer', 'Ordinateur', data.current.desktop_icons_computer === 'true')}
-                        </div>
-                    `;
-
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Veille et ecran</h3>
-                            <div class="dconf-field">
-                                <label>Delai economiseur d'ecran (s, 0 = jamais)</label>
-                                <input type="number" id="dconf_idle_delay" min="0" step="60"
-                                       value="${data.current.idle_delay ? data.current.idle_delay.replace('uint32 ', '') : 0}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Extinction ecran secteur (s, 0 = jamais)</label>
-                                <input type="number" id="dconf_sleep_display_ac" min="0" step="60"
-                                       value="${data.current.sleep_display_ac || 0}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Veille sur secteur (s, 0 = jamais)</label>
-                                <input type="number" id="dconf_sleep_ac" min="0" step="60"
-                                       value="${data.current.sleep_ac_timeout || 0}">
-                            </div>
-                            <div class="dconf-field">
-                                <label>Veille sur batterie (s, 0 = jamais)</label>
-                                <input type="number" id="dconf_sleep_bat" min="0" step="60"
-                                       value="${data.current.sleep_bat_timeout || 0}">
-                            </div>
-                            ${buildToggle('dconf_screensaver', 'Economiseur d\'ecran actif', data.current.screensaver_active === 'true')}
-                        </div>
-                    `;
-
-                    grid.innerHTML += `
-                        <div class="dconf-group">
-                            <h3>Interface</h3>
-                            ${buildToggle('dconf_buttons_icons', 'Icones dans les boutons', data.current.buttons_have_icons === 'true')}
-                            ${buildToggle('dconf_menus_icons', 'Icones dans les menus', data.current.menus_have_icons === 'true')}
-                            ${buildToggle('dconf_audible_bell', 'Son d\'alerte systeme', data.current.audible_bell === 'true')}
-                        </div>
-                    `;
-
-                    grid.querySelectorAll('select, input').forEach(el => {
-                        el.addEventListener('change', updateDconfPreview);
-                        el.addEventListener('input', updateDconfPreview);
-                    });
-                })
-                .catch(err => console.error('Dconf options error:', err));
-        }
-
-        function buildSelectGroup(title, fields) {
-            let html = '<div class="dconf-group"><h3>' + title + '</h3>';
-            fields.forEach(f => {
-                html += '<div class="dconf-field"><label>' + f.label + '</label>';
-                html += '<select id="dconf_' + f.id + '">';
-                f.options.forEach(opt => {
-                    html += '<option value="' + esc(opt) + '"' + (opt === f.current ? ' selected' : '') + '>' + opt + '</option>';
-                });
-                html += '</select></div>';
-            });
-            return html + '</div>';
-        }
-
-        function buildToggle(id, label, checked) {
-            return `
-                <div class="dconf-toggle">
-                    <label>${label}</label>
-                    <div class="toggle-switch">
-                        <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
-                        <span class="slider" onclick="this.previousElementSibling.click(); updateDconfPreview();"></span>
-                    </div>
-                </div>
-            `;
-        }
-
-        function getDconfSettings() {
-            const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-            const chk = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
-            return {
-                gtk_theme: val('dconf_gtk_theme'),
-                icon_theme: val('dconf_icon_theme'),
-                cursor_theme: val('dconf_cursor_theme'),
-                cinnamon_theme: val('dconf_cinnamon_theme'),
-                wm_theme: val('dconf_wm_theme'),
-                font_name: val('dconf_font_name'),
-                titlebar_font: val('dconf_titlebar_font'),
-                num_workspaces: val('dconf_num_workspaces'),
-                button_layout: val('dconf_button_layout'),
-                night_light_enabled: chk('dconf_night_light'),
-                night_light_schedule: val('dconf_night_light_schedule'),
-                night_light_temp: val('dconf_night_light_temp'),
-                idle_delay: val('dconf_idle_delay'),
-                lock_enabled: chk('dconf_lock_enabled'),
-                event_sounds: chk('dconf_event_sounds'),
-                show_hidden_files: chk('dconf_show_hidden'),
-                desktop_icons_home: chk('dconf_icon_home'),
-                desktop_icons_trash: chk('dconf_icon_trash'),
-                desktop_icons_computer: chk('dconf_icon_computer'),
-                sleep_display_ac: val('dconf_sleep_display_ac'),
-                sleep_ac_timeout: val('dconf_sleep_ac'),
-                sleep_bat_timeout: val('dconf_sleep_bat'),
-                buttons_have_icons: chk('dconf_buttons_icons'),
-                menus_have_icons: chk('dconf_menus_icons'),
-                audible_bell: chk('dconf_audible_bell'),
-                screensaver_active: chk('dconf_screensaver'),
-            };
-        }
-
-        function updateDconfPreview() {
-            const s = getDconfSettings();
-            const changes = [];
-
-            const strFields = [
-                ['gtk_theme', 'gtk-theme'], ['icon_theme', 'icon-theme'],
-                ['cursor_theme', 'cursor-theme'], ['cinnamon_theme', 'cinnamon-theme'],
-                ['wm_theme', 'wm-theme'], ['font_name', 'font-name'],
-                ['titlebar_font', 'titlebar-font'], ['button_layout', 'button-layout'],
-                ['night_light_schedule', 'night-light-schedule'],
-            ];
-            strFields.forEach(([key, label]) => {
-                if (s[key] !== dconfCurrent[key]) changes.push(label + ' = ' + s[key]);
-            });
-            if (s.num_workspaces !== (dconfCurrent.num_workspaces || '4')) changes.push('workspaces = ' + s.num_workspaces);
-
-            const numFields = [
-                ['sleep_display_ac', 'extinction-ecran'], ['sleep_ac_timeout', 'veille-secteur'],
-                ['sleep_bat_timeout', 'veille-batterie'], ['idle_delay', 'ecran-delai'],
-            ];
-            numFields.forEach(([key, label]) => {
-                if (s[key] !== (dconfCurrent[key] || '0')) changes.push(label + ' = ' + s[key] + 's');
-            });
-
-            const boolFields = [
-                ['night_light_enabled', 'night-light'], ['lock_enabled', 'lock-screen'],
-                ['event_sounds', 'event-sounds'], ['show_hidden_files', 'show-hidden'],
-                ['desktop_icons_home', 'desktop-home'], ['desktop_icons_trash', 'desktop-trash'],
-                ['desktop_icons_computer', 'desktop-computer'], ['screensaver_active', 'screensaver'],
-                ['buttons_have_icons', 'buttons-icons'], ['menus_have_icons', 'menus-icons'],
-                ['audible_bell', 'audible-bell'],
-            ];
-            boolFields.forEach(([key, label]) => {
-                if (s[key] !== (dconfCurrent[key] === 'true')) changes.push(label + ' = ' + s[key]);
-            });
-            if (s.night_light_temp !== (dconfCurrent.night_light_temp || '').replace('uint32 ', '')) {
-                changes.push('night-light-temp = ' + s.night_light_temp + 'K');
-            }
-
-            const wrap = document.getElementById('dconfPreviewWrap');
-            const pre = document.getElementById('dconfPreview');
-            if (changes.length) {
-                wrap.style.display = 'block';
-                pre.textContent = changes.length + ' modification(s):\n\n' + changes.join('\n');
-            } else {
-                wrap.style.display = 'none';
-            }
-        }
-
-        function applyDarkMode(dark) {
-            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
-            const label = dark ? 'sombre' : 'clair';
-            fetch('/api/dconf/dark-mode', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({dark})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Mode ' + label + ' applique (GTK: ' + data.gtk_theme + ')', 'success');
-                    addLog('Mode ' + label + ' : GTK=' + data.gtk_theme + ', Cinnamon=' + (data.cinnamon_theme||'') + ', WM=' + (data.wm_theme||''));
-                    // Mettre a jour visuellement les boutons
-                    document.getElementById('btnLightMode').style.borderColor = dark ? '' : 'var(--primary)';
-                    document.getElementById('btnLightMode').style.color = dark ? '' : 'var(--primary)';
-                    document.getElementById('btnDarkMode').style.borderColor = dark ? 'var(--primary)' : '';
-                    document.getElementById('btnDarkMode').style.color = dark ? 'var(--primary)' : '';
-                    // Rafraichir les themes dans les selects (le gtk-theme a change)
-                    setTimeout(() => loadDconfOptions(), 800);
-                } else {
-                    showToast('Erreur mode ' + label, 'error');
-                }
-            })
-            .catch(err => showToast('Erreur reseau : ' + err, 'error'));
-        }
-
-        function applyDconf() {
-            if (isTaskRunning) return showToast('Une tache est deja en cours', 'warning');
-            showConfirm(
-                'Appliquer la config dconf ?',
-                'Les themes et parametres du bureau seront modifies immediatement.',
-                _doApplyDconf
-            );
-        }
-        function _doApplyDconf() {
-            fetch('/api/dconf/apply', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({settings: getDconfSettings()})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    addLog('Config dconf lancee');
-                    const poll = setInterval(() => {
-                        if (!isTaskRunning) {
-                            clearInterval(poll);
-                            loadDconfOptions();
-                            showToast('Config dconf appliquee', 'success');
-                        }
-                    }, 1000);
-                }
-                else showToast('Erreur: ' + data.error, 'error');
-            })
-            .catch(err => showToast('Erreur reseau: ' + err, 'error'));
-        }
-
-        function exportCurrentDconf() { window.open('/api/dconf/export', '_blank'); }
 
         // Historique & Rollback
         function loadHistory() {
@@ -1246,182 +952,50 @@
 
         // ─── Laptop ─────────────────────────────────────────────────────
 
+        const _BATTERY_STATUS_FR = {
+            'charging':       'en charge',
+            'discharging':    'en decharge',
+            'full':           'pleine',
+            'not charging':   'branche, pas en charge',
+            'unknown':        'inconnu',
+        };
+
         function detectLaptop() {
             fetch('/api/laptop/detect')
                 .then(r => r.json())
                 .then(data => {
-                    const section = document.getElementById('laptopSection');
-                    if (!data.is_laptop) { section.style.display = 'none'; return; }
-                    section.style.display = '';
+                    const banner = document.getElementById('laptopBatteryBanner');
+                    if (!banner) return;
+                    if (!data.is_laptop) { banner.style.display = 'none'; return; }
 
-                    const bat = data.battery;
-                    const bar = document.getElementById('laptopBatteryBar');
-                    if (bat.capacity !== undefined) {
-                        const pct = bat.capacity;
-                        const color = pct > 50 ? 'var(--success)' : pct > 20 ? 'var(--warning)' : 'var(--danger)';
-                        bar.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
-                            + '<span style="font-size:0.9em;color:var(--text-muted);">Batterie (' + esc(bat.name) + ') : '
-                            + esc(bat.status) + '</span>'
-                            + '<div style="flex:1;height:8px;background:var(--light);border-radius:4px;overflow:hidden;">'
-                            + '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:4px;"></div></div>'
-                            + '<span style="font-weight:bold;color:var(--dark);">' + pct + '%</span>'
-                            + (bat.cycle_count !== undefined ? '<span style="font-size:0.8em;color:var(--text-muted);">' + bat.cycle_count + ' cycles</span>' : '')
-                            + '</div>';
+                    const bat = data.battery || {};
+                    const pct = (bat.capacity !== undefined) ? bat.capacity : null;
+                    const rawStatus = (typeof bat.status === 'string') ? bat.status : '';
+                    const statusFr = _BATTERY_STATUS_FR[rawStatus.toLowerCase()] || rawStatus;
+                    const onAc = /^(charging|full|not charging)$/i.test(rawStatus);
+                    const lowBattery = pct !== null && pct < 30 && !onAc;
+
+                    banner.classList.remove('battery-ok', 'battery-warn', 'battery-low');
+                    if (lowBattery)       banner.classList.add('battery-low');
+                    else if (!onAc)       banner.classList.add('battery-warn');
+                    else                  banner.classList.add('battery-ok');
+
+                    let html = '<strong>PC portable detecte.</strong> ';
+                    if (pct !== null) {
+                        html += 'Batterie : <strong>' + pct + '%</strong>';
+                        if (statusFr) html += ' (' + esc(statusFr) + ')';
+                        html += '. ';
                     }
-                    loadLaptopStatus();
+                    if (lowBattery) {
+                        html += 'Batterie faible : branchez imperativement l\'ordinateur sur secteur avant toute installation ou modification systeme.';
+                    } else if (!onAc) {
+                        html += 'Il est preferable de brancher l\'ordinateur sur secteur avant d\'installer des paquets ou d\'appliquer des modifications systeme.';
+                    } else {
+                        html += 'L\'ordinateur est branche sur secteur, vous pouvez continuer en toute securite.';
+                    }
+                    banner.innerHTML = html;
+                    banner.style.display = '';
                 })
                 .catch(() => {});
-        }
-
-        function loadLaptopStatus() {
-            Promise.all([
-                fetch('/api/laptop/status').then(r => r.json()),
-                fetch('/api/laptop/thermal').then(r => r.json()),
-            ]).then(([status, thermal]) => {
-                renderLaptopChecklist(status, thermal);
-            }).catch(() => {});
-        }
-
-        function renderLaptopChecklist(status, thermal) {
-            const el = document.getElementById('laptopChecklist');
-            let html = '';
-
-            // ── TLP
-            const tlpDone = status.tlp.active;
-            const tlpBadge = tlpDone
-                ? '<span style="font-size:0.75em;background:#d5f4e6;color:#27ae60;padding:2px 8px;border-radius:8px;margin-left:8px;">actif</span>'
-                : '';
-            html += '<div class="laptop-group">'
-                + '<div class="laptop-group-title">Gestion energie' + tlpBadge + '</div>'
-                + '<label class="laptop-check-item"><input type="checkbox" data-laptop="tlp" value="tlp" ' + (tlpDone ? '' : 'checked') + '>'
-                + '<div><span class="pkg-name">TLP</span>'
-                + '<span class="pkg-desc">Optimisation auto secteur/batterie, CPU governor, WiFi, USB, PCIe ASPM</span></div></label>'
-                + '</div>';
-
-            // ── Monitoring
-            html += '<div class="laptop-group"><div class="laptop-group-title">Monitoring</div>';
-            status.monitoring.forEach(pkg => {
-                const done = pkg.installed;
-                const badge = done ? '<span style="font-size:0.75em;background:#d5f4e6;color:#27ae60;padding:2px 6px;border-radius:8px;margin-left:6px;">installe</span>' : '';
-                html += '<label class="laptop-check-item"><input type="checkbox" data-laptop="monitoring" value="' + esc(pkg.name) + '" ' + (done ? '' : 'checked') + '>'
-                    + '<div><span class="pkg-name">' + esc(pkg.name) + badge + '</span>'
-                    + '<span class="pkg-desc">' + esc(pkg.description) + '</span></div></label>';
-            });
-            html += '</div>';
-
-            // ── Dock
-            html += '<div class="laptop-group"><div class="laptop-group-title">Mode dock (logind)</div>';
-            const DOCK_LABELS = {
-                HandleLidSwitch: 'Capot ferme (batterie)',
-                HandleLidSwitchExternalPower: 'Capot ferme (secteur)',
-                HandleLidSwitchDocked: 'Capot ferme (dock)',
-            };
-            status.dock.forEach(d => {
-                const label = DOCK_LABELS[d.key] || d.key;
-                const badge = d.applied
-                    ? '<span style="font-size:0.75em;background:#d5f4e6;color:#27ae60;padding:2px 6px;border-radius:8px;margin-left:6px;">OK</span>'
-                    : (d.current ? '<span style="font-size:0.75em;background:#fef3cd;color:#856404;padding:2px 6px;border-radius:8px;margin-left:6px;">' + esc(d.current) + '</span>' : '');
-                html += '<label class="laptop-check-item"><input type="checkbox" data-laptop="dock" value="' + esc(d.key) + '" ' + (d.applied ? '' : 'checked') + '>'
-                    + '<div><span class="pkg-name">' + esc(label) + badge + '</span>'
-                    + '<span class="pkg-desc">' + esc(d.key) + '=' + esc(d.target) + '</span></div></label>';
-            });
-            html += '</div>';
-
-            // ── Thermique
-            html += '<div class="laptop-group"><div class="laptop-group-title">Services optionnels (thermique)</div>'
-                + '<div style="font-size:0.82em;color:var(--text-muted);margin-bottom:6px;">Desactivez les services inutiles pour reduire la chauffe.</div>';
-            thermal.services.forEach(s => {
-                const statusColor = s.active ? 'var(--success)' : 'var(--text-muted)';
-                const statusText = s.active ? 'actif' : 'inactif';
-                html += '<div class="laptop-check-item" style="justify-content:space-between;">'
-                    + '<div style="flex:1;"><span class="pkg-name">' + esc(s.name) + '</span>'
-                    + '<span class="pkg-desc">' + esc(s.description) + '</span></div>'
-                    + '<span style="color:' + statusColor + ';font-size:0.82em;margin:0 10px;">' + statusText + '</span>'
-                    + '<label class="toggle-switch"><input type="checkbox" ' + (s.enabled ? 'checked' : '')
-                    + ' onchange="toggleThermalService(\'' + s.name + '\', this.checked)">'
-                    + '<span class="slider"></span></label></div>';
-            });
-            html += '</div>';
-
-            el.innerHTML = html;
-        }
-
-        function laptopCheckAll(checked) {
-            document.querySelectorAll('#laptopChecklist input[data-laptop]').forEach(cb => { cb.checked = checked; });
-        }
-
-        function applyLaptopSelection() {
-            if (isTaskRunning) { showToast('Une tache est en cours', 'warning'); return; }
-
-            const wantTlp = !!document.querySelector('#laptopChecklist input[data-laptop="tlp"]:checked');
-            const monitoring = [];
-            document.querySelectorAll('#laptopChecklist input[data-laptop="monitoring"]:checked').forEach(cb => monitoring.push(cb.value));
-            const dock = [];
-            document.querySelectorAll('#laptopChecklist input[data-laptop="dock"]:checked').forEach(cb => dock.push(cb.value));
-
-            if (!wantTlp && !monitoring.length && !dock.length) {
-                return showToast('Aucun element selectionne.', 'warning');
-            }
-
-            const parts = [];
-            if (wantTlp) parts.push('TLP');
-            if (monitoring.length) parts.push(monitoring.length + ' monitoring');
-            if (dock.length) parts.push(dock.length + ' dock');
-
-            showConfirm('Appliquer la selection laptop ?',
-                'Elements : ' + parts.join(', '),
-                () => {
-                    fetch('/api/laptop/apply', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({tlp: wantTlp, monitoring: monitoring, dock: dock})
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) addLog(data.message);
-                        else showToast('Erreur : ' + data.error, 'error');
-                    })
-                    .catch(err => showToast('Erreur reseau : ' + err, 'error'));
-                }
-            );
-        }
-
-        function laptopChecks(liveUsb) {
-            const el = document.getElementById('laptopChecksResults');
-            const out = document.getElementById('checksOutput');
-            el.style.display = '';
-            out.innerHTML = '<div style="color:var(--text-muted);padding:10px;">Diagnostic en cours...</div>';
-
-            fetch('/api/laptop/checks?live_usb=' + (liveUsb ? 'true' : 'false'))
-                .then(r => r.json())
-                .then(data => {
-                    let html = '';
-                    data.checks.forEach(c => {
-                        const badge = c.live_usb
-                            ? '<span style="font-size:0.7em;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;margin-left:6px;">Live USB</span>'
-                            : '<span style="font-size:0.7em;background:#fef3cd;color:#856404;padding:2px 6px;border-radius:4px;margin-left:6px;">Post-install</span>';
-                        html += '<div class="check-item">'
-                            + '<div class="check-name">' + esc(c.name) + badge + '</div>'
-                            + '<pre class="check-output">' + esc(c.output) + '</pre></div>';
-                    });
-                    out.innerHTML = html;
-                })
-                .catch(err => {
-                    out.innerHTML = '<div style="color:var(--danger);">Erreur : ' + esc(String(err)) + '</div>';
-                });
-        }
-
-        function toggleThermalService(service, enable) {
-            fetch('/api/laptop/thermal/toggle', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({service: service, enable: enable})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) showToast(service + (enable ? ' active' : ' desactive'), 'success');
-                else showToast('Erreur : ' + data.error, 'error');
-            })
-            .catch(err => showToast('Erreur reseau : ' + err, 'error'));
         }
 

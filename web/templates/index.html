@@ -14,23 +14,22 @@
                 <h1>MintyForge</h1>
                 <p>Installation automatisee pour Linux Mint</p>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="header-actions">
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Basculer clair/sombre">
                     <span id="themeIcon">🌙</span>
                 </button>
-                <button class="btn-small" onclick="quitApp()" title="Quitter MintyForge"
-                        style="border-color: var(--danger); color: var(--danger); font-size: 0.85em;">
+                <button class="btn-small btn-quit" onclick="quitApp()" title="Quitter MintyForge">
                     Quitter
                 </button>
             </div>
         </div>
 
-        <div class="disclaimer" id="disclaimer" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.82em; color: #664d03; line-height: 1.5;">
+        <div class="disclaimer" id="disclaimer">
             <strong>Avertissement :</strong> MintyForge modifie la configuration systeme, installe et supprime des paquets.
             Utilisez ce programme a vos propres risques. L'auteur ne peut etre tenu responsable de tout dysfonctionnement,
             perte de donnees ou probleme resultant de son utilisation. Il est recommande de faire une sauvegarde
             de votre systeme avant de continuer.
-            <button onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; font-size: 1.2em; cursor: pointer; color: #664d03; padding: 0 4px;" title="Fermer">&times;</button>
+            <button class="disclaimer-close" onclick="this.parentElement.style.display='none'" title="Fermer">&times;</button>
         </div>
 
         <div class="status-bar" id="statusBar">
@@ -71,10 +70,10 @@
         <div class="tools-warning" id="toolsWarning" style="display: none;"></div>
 
         <div class="task-bar" id="taskBar" style="display: none;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <div class="task-bar-row">
                 <div class="task-status" id="taskStatus">Pret</div>
-                <button class="btn-small" id="btnCancelTask" onclick="cancelTask()"
-                        style="display:none; border-color: var(--danger); color: var(--danger);">
+                <button class="btn-small btn-cancel-task" id="btnCancelTask" onclick="cancelTask()"
+                        style="display: none;">
                     Annuler
                 </button>
             </div>
@@ -95,45 +94,19 @@
                 </div>
             </div>
             <div class="profiles-grid" id="profilesGrid">
-                <div style="color: var(--text-muted);">Chargement des profils...</div>
+                <div class="placeholder-muted">Chargement des profils...</div>
             </div>
             <button class="install-profiles-btn" id="btnInstallProfiles" onclick="installProfiles()" disabled>
                 Installer les profils selectionnes (tous les paquets)
                 <span class="btn-sub" id="profilesBtnSub">Aucun profil selectionne</span>
             </button>
-            <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 8px; text-align: center;">
+            <p class="hint-center">
                 Pour choisir paquet par paquet : cliquer "Detail" sur un profil, cocher/decocher, puis "Installer la selection".
             </p>
         </div>
 
-        <!-- Section PC Portable (masquee si desktop) -->
-        <div class="profiles-section laptop-section" id="laptopSection" style="display: none;">
-            <div class="profiles-header">
-                <h2>PC Portable</h2>
-                <div class="profiles-actions">
-                    <button class="btn-small" onclick="laptopCheckAll(true)">Tout cocher</button>
-                    <button class="btn-small" onclick="laptopCheckAll(false)">Tout decocher</button>
-                    <button class="btn-small" onclick="loadLaptopStatus()">Rafraichir</button>
-                </div>
-            </div>
-            <div id="laptopBatteryBar" class="laptop-battery-bar"></div>
-            <div id="laptopChecklist"></div>
-            <button class="install-profiles-btn" onclick="applyLaptopSelection()" style="margin-top: 14px; font-size: 1em; padding: 14px;">
-                Appliquer la selection
-            </button>
-            <div style="display: flex; gap: 8px; margin-top: 14px; align-items: center;">
-                <span style="font-size: 0.95em; color: var(--dark); font-weight: 600;">Diagnostic materiel</span>
-                <button class="btn-small" onclick="laptopChecks(false)" style="border-color: var(--secondary); color: var(--secondary);">
-                    Complet
-                </button>
-                <button class="btn-small" onclick="laptopChecks(true)" style="border-color: var(--text-muted); color: var(--text-muted);">
-                    Live USB
-                </button>
-            </div>
-            <div id="laptopChecksResults" style="display: none; margin-top: 10px;">
-                <div id="checksOutput" class="checks-output"></div>
-            </div>
-        </div>
+        <!-- Bandeau batterie PC portable (masque si desktop) -->
+        <div id="laptopBatteryBanner" class="battery-banner" style="display: none;"></div>
 
         <!-- Paquets optionnels -->
         <div class="profiles-section" id="optionalSection">
@@ -143,13 +116,13 @@
                     <button class="btn-small" onclick="loadOptionalPackages()">Rafraichir</button>
                 </div>
             </div>
-            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 12px;">
+            <p class="section-hint">
                 Paquets pratiques mais non essentiels : imprimantes HP, polices Microsoft, outils divers.
             </p>
-            <div id="optionalGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 14px;">
-                <div style="color: var(--text-muted);">Chargement...</div>
+            <div id="optionalGrid" class="optional-grid">
+                <div class="placeholder-muted">Chargement...</div>
             </div>
-            <button class="install-profiles-btn" onclick="installOptional()" style="font-size: 1em; padding: 14px;">
+            <button class="install-profiles-btn install-btn-compact" onclick="installOptional()">
                 Installer tous les paquets optionnels
             </button>
         </div>
@@ -159,49 +132,27 @@
             <div class="profiles-header">
                 <h2>Themes a installer</h2>
                 <div class="profiles-actions">
-                    <button class="btn-small" id="themeTabGtk"    onclick="switchThemeTab('gtk')"    style="border-color: var(--primary);">GTK</button>
+                    <button class="btn-small theme-tab-active" id="themeTabGtk" onclick="switchThemeTab('gtk')">GTK</button>
                     <button class="btn-small" id="themeTabIcon"   onclick="switchThemeTab('icon')">Icones</button>
                     <button class="btn-small" id="themeTabCursor" onclick="switchThemeTab('cursor')">Curseurs</button>
                     <button class="btn-small" onclick="loadThemeCatalog()">Rafraichir catalogue</button>
-                    <button class="btn-small" onclick="reloadAllThemes()" style="border-color: var(--secondary); color: var(--secondary);">
+                    <button class="btn-small btn-secondary-outline" onclick="reloadAllThemes()">
                         Recharger tous les themes
                     </button>
                 </div>
             </div>
-            <div style="display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap;">
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.88em; color: var(--text-muted);">
+            <div class="theme-filters">
+                <label class="theme-filter-label">
                     <input type="checkbox" id="themeHideInstalled" onchange="renderThemeTab(_currentThemeTab)">
                     Masquer les deja installes
                 </label>
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.88em; color: var(--text-muted);" title="Installe dans /usr/share (pour tous les utilisateurs et le greeter) — necessite sudo">
+                <label class="theme-filter-label" title="Installe dans /usr/share (pour tous les utilisateurs et le greeter) — necessite sudo">
                     <input type="checkbox" id="themeSystemInstall" checked>
                     Installation systeme (/usr/share) — recommande
                 </label>
             </div>
-            <div id="themeCatalogGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 4px;">
-                <div style="color: var(--text-muted);">Chargement...</div>
-            </div>
-        </div>
-
-        <div class="dconf-section" id="dconfSection">
-            <h2>Parametres du bureau</h2>
-            <p style="color: var(--text-muted); margin-bottom: 18px;">
-                Configurez l'apparence et les parametres du bureau. Appliques directement via gsettings.
-            </p>
-            <div class="dconf-grid" id="dconfGrid">
-                <div style="color: var(--text-muted);">Chargement des options...</div>
-            </div>
-            <div id="dconfPreviewWrap" style="display: none;">
-                <h3 style="color: var(--dark); margin-bottom: 8px;">Apercu des modifications</h3>
-                <div class="dconf-preview" id="dconfPreview"></div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="install-profiles-btn" style="flex: 1;" onclick="applyDconf()">
-                    Appliquer la configuration
-                </button>
-                <button class="btn-small" style="padding: 18px; font-size: 1em;" onclick="exportCurrentDconf()">
-                    Exporter dconf actuel
-                </button>
+            <div id="themeCatalogGrid" class="theme-catalog-grid">
+                <div class="placeholder-muted">Chargement...</div>
             </div>
         </div>
 
@@ -211,18 +162,18 @@
                 <h2>Ecran de connexion (slick-greeter)</h2>
                 <button class="btn-small" onclick="loadGreeterStatus()">Rafraichir</button>
             </div>
-            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 8px;">
+            <p class="section-hint-sm">
                 Applique le theme GTK, icones, curseur, police et <code>activate-numlock</code> a l'ecran de connexion LightDM via <code>crudini</code>.
             </p>
-            <div style="font-size: 0.82em; background: #fef3cd; border-left: 3px solid var(--warning); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; color: #856404;">
+            <div class="greeter-info">
                 Les themes doivent etre installes dans <strong>/usr/share/themes</strong> ou <strong>/usr/share/icons</strong>
                 (pas dans ~/.themes) car lightdm tourne en tant qu'utilisateur systeme.
                 Utilisez l'option "Installation systeme" dans le catalogue de themes.
             </div>
-            <div id="greeterStatus" style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 14px; background: var(--light); border-radius: 8px; padding: 10px;">
+            <div id="greeterStatus" class="greeter-status-box">
                 Chargement...
             </div>
-            <button class="install-profiles-btn" onclick="greeterSync()" style="font-size: 1em; padding: 14px;">
+            <button class="install-profiles-btn install-btn-compact" onclick="greeterSync()">
                 Synchroniser avec le bureau actuel
             </button>
         </div>
@@ -233,8 +184,8 @@
             <div class="history-summary" id="historySummary" style="display:none;"></div>
             <div class="history-toolbar">
                 <button class="btn-small" onclick="loadHistory()">Rafraichir</button>
-                <button class="btn-small" onclick="rollbackLast()" style="border-color: var(--warning); color: var(--warning);">Annuler derniere</button>
-                <button class="btn-small" onclick="rollbackAll()" style="border-color: var(--danger); color: var(--danger);">Tout annuler</button>
+                <button class="btn-small btn-warning-outline" onclick="rollbackLast()">Annuler derniere</button>
+                <button class="btn-small btn-danger-outline" onclick="rollbackAll()">Tout annuler</button>
                 <button class="btn-small" onclick="clearHistory()">Effacer historique</button>
             </div>
             <div id="historyContent">
@@ -245,17 +196,13 @@
 
         <div class="history-section">
             <h2>Pare-feu (ufw)</h2>
-            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
-                <span id="firewallStatus" style="font-weight: bold; color: var(--text-muted);">Chargement...</span>
+            <div class="firewall-row">
+                <span id="firewallStatus" class="firewall-status">Chargement...</span>
                 <button class="btn-small" onclick="loadFirewall()">Rafraichir</button>
-                <button class="btn-small" id="btnFirewallEnable" onclick="firewallEnable()"
-                        style="border-color: var(--success); color: var(--success);">Activer</button>
-                <button class="btn-small" id="btnFirewallDisable" onclick="firewallDisable()"
-                        style="border-color: var(--danger); color: var(--danger);">Desactiver</button>
+                <button class="btn-small btn-success-outline" id="btnFirewallEnable" onclick="firewallEnable()">Activer</button>
+                <button class="btn-small btn-danger-outline" id="btnFirewallDisable" onclick="firewallDisable()">Desactiver</button>
             </div>
-            <pre id="firewallOutput"
-                 style="font-size: 0.78em; color: var(--text-muted); background: var(--light);
-                        padding: 10px; border-radius: 8px; white-space: pre-wrap; display: none;"></pre>
+            <pre id="firewallOutput" class="firewall-output" style="display: none;"></pre>
         </div>
 
         <div class="logs-section">
@@ -290,10 +237,10 @@
             <h3 id="modalTitle"></h3>
             <p class="modal-desc" id="modalDesc"></p>
             <div id="modalContent"></div>
-            <div id="modalFooter" style="display:none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+            <div id="modalFooter" class="modal-footer-actions" style="display: none;">
                 <button class="btn-small" onclick="checkAllModalPkgs(true)">Tout cocher</button>
                 <button class="btn-small" onclick="checkAllModalPkgs(false)">Tout decocher</button>
-                <button class="install-profiles-btn" id="btnInstallCustom" style="flex: 1; padding: 12px; font-size: 0.95em;" onclick="installCustomFromModal()">
+                <button class="install-profiles-btn btn-install-custom" id="btnInstallCustom" onclick="installCustomFromModal()">
                     Installer la selection
                 </button>
             </div>
