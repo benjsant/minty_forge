@@ -52,8 +52,8 @@ def check_env():
 
     # Outils systeme (non bloquants, simples avertissements)
     tools = {
-        "dconf":     "requis pour la gestion des parametres Cinnamon/GNOME",
-        "gsettings": "requis pour la gestion des parametres Cinnamon/GNOME",
+        "dconf":     "requis pour l'application des themes (dump/load dconf)",
+        "gsettings": "requis pour l'application des themes (greeter, etc.)",
         "apt":       "requis pour l'installation de paquets",
         "flatpak":   "optionnel — pour l'installation de Flatpaks",
         "git":       "optionnel — pour l'installation de themes depuis GitHub",

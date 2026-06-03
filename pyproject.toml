@@ -1,6 +1,6 @@
 [project]
 name = "mintyforge"
-version = "0.1.0"
+version = "2.3.0"
 description = "Post-install automation tool for Linux Mint"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,3 +12,12 @@ dependencies = [
 # uv cree automatiquement .venv/ a la racine du projet
 # Lancer : uv sync
 # Executer : uv run python minty_forge.py
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Les anciens tests retournent True/False au lieu d'asserter, pratique deprecie
+# par pytest 8+. On silence le warning ; les nouveaux tests (test_routes.py)
+# utilisent assert. A nettoyer progressivement.
+filterwarnings = [
+    "ignore::pytest.PytestReturnNotNoneWarning",
+]

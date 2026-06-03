@@ -1,18 +1,17 @@
 # 🚀 MintyForge - Guide de Démarrage Rapide
 
-## Installation en 3 commandes
+## Installation et lancement
 
 ```bash
-git clone https://github.com/<votre-compte>/minty_forge.git
+git clone https://github.com/benjsant/minty_forge.git
 cd minty_forge
-./setup.sh
+chmod +x mintyforge.sh
+./mintyforge.sh    # ou : ./start.sh (alias)
 ```
 
-## Lancement
-
-```bash
-./start.sh
-```
+Le script `mintyforge.sh` installe `uv` si besoin, synchronise les dépendances,
+installe `crudini`/`sassc`, configure un sudoers temporaire (retiré à la
+fermeture) et lance Flask.
 
 Puis ouvrez votre navigateur : **http://localhost:5000**
 

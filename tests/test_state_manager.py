@@ -162,8 +162,9 @@ def test_rollback_last():
             rolled = state.rollback_last()
             assert rolled is not None
             assert rolled.target == "curl", f"Expected 'curl', got {rolled.target}"
+            # _execute_rollback prefixe sudo -n pour les commandes apt
             mock_run.assert_called_once_with(
-                ["apt", "remove", "-y", "curl"],
+                ["sudo", "-n", "apt", "remove", "-y", "curl"],
                 capture_output=True, text=True, timeout=300,
             )
 

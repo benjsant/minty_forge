@@ -12,6 +12,7 @@
     {
       "name": "KVM/libvirt (activation + groupes)",
       "description": "Active le daemon libvirt, configure le socket de groupe et ajoute l'utilisateur aux groupes necessaires",
+      "config": true,
       "cmd": "sudo bash -c 'systemctl enable --now libvirtd && sed -i \"s/^#unix_sock_group/unix_sock_group/\" /etc/libvirt/libvirtd.conf && sed -i \"s/^#unix_sock_rw_perms/unix_sock_rw_perms/\" /etc/libvirt/libvirtd.conf && systemctl restart libvirtd && usermod -aG libvirt $SUDO_USER && usermod -aG kvm $SUDO_USER'"
     },
     {

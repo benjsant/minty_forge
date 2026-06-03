@@ -140,6 +140,16 @@ def install_profiles():
     return jsonify({"success": True, "message": f"Installation : {', '.join(slugs)}"})
 
 
+@bp.route('/api/profiles/reload', methods=['POST'])
+def reload_profiles():
+    """Vide les caches profils/GPU pour forcer le rechargement depuis disque."""
+    global _gpu_cache
+    _gpu_cache = None
+    _profiles_cache["data"] = None
+    _profiles_cache["ts"] = 0
+    return jsonify({"success": True, "message": "Caches profils invalides"})
+
+
 @bp.route('/api/profiles/dry-run', methods=['POST'])
 def dry_run_profiles():
     data = request.get_json(silent=True) or {}
@@ -147,11 +157,12 @@ def dry_run_profiles():
     if not slugs or not isinstance(slugs, list):
         return jsonify({"success": False, "error": "Liste 'profiles' requise"}), 400
 
+    cached = _load_profiles()
     seen_apt, seen_flatpak, seen_external = set(), set(), set()
     result = {}
 
     for slug in slugs:
-        profile = get_profile(slug)
+        profile = cached.get(slug) or get_profile(slug)
         if profile is None:
             continue
         entry = {"apt": [], "flatpak": [], "external": [], "remove": []}
@@ -182,20 +193,45 @@ def dry_run_profiles():
 
 @bp.route('/api/profiles/install-custom', methods=['POST'])
 def install_custom():
-    """Installe une selection manuelle de paquets issus d'un profil."""
-    data = request.get_json(silent=True) or {}
-    apt_pkgs     = data.get("apt", [])       # [{name, description}]
-    flatpak_apps = data.get("flatpak", [])   # [{app, description}]
-    external_pkgs = data.get("external", []) # [{name, description, cmd}]
-    remove_pkgs  = data.get("remove", [])    # [{name, description}]
+    """Installe une selection manuelle de paquets issus d'un profil.
 
-    if not any([apt_pkgs, flatpak_apps, external_pkgs, remove_pkgs]):
+    Securite : le client envoie le slug du profil et les *noms* des elements
+    selectionnes ; les commandes (apt, flatpak, external cmd) sont resolues
+    cote serveur a partir du profil canonique. Le body ne peut donc pas
+    injecter une commande shell arbitraire.
+    """
+    data = request.get_json(silent=True) or {}
+    slug = data.get("slug", "")
+    apt_names      = data.get("apt", [])       # ["pkg1", "pkg2"]
+    flatpak_ids    = data.get("flatpak", [])   # ["com.example.App"]
+    external_names = data.get("external", []) # ["VirtualBox 7.1"]
+    remove_names   = data.get("remove", [])    # ["pkg-a", ...]
+
+    if not slug:
+        return jsonify({"success": False, "error": "slug du profil requis"}), 400
+    profile = get_profile(slug)
+    if profile is None:
+        return jsonify({"success": False, "error": f"Profil inconnu : {slug}"}), 404
+
+    # Resoudre les noms vers les entrees canoniques du profil
+    apt_pool      = {p.name: p for p in profile.apt}
+    flatpak_pool  = {f.app: f for f in profile.flatpak}
+    external_pool = {e.name: e for e in profile.external}
+    remove_pool   = {p.name: p for p in profile.remove}
+
+    apt_resolved      = [apt_pool[n]      for n in apt_names      if n in apt_pool]
+    flatpak_resolved  = [flatpak_pool[a]  for a in flatpak_ids    if a in flatpak_pool]
+    external_resolved = [external_pool[n] for n in external_names if n in external_pool]
+    remove_resolved   = [remove_pool[n]   for n in remove_names   if n in remove_pool]
+
+    total = (len(apt_resolved) + len(flatpak_resolved)
+             + len(external_resolved) + len(remove_resolved))
+    if total == 0:
         return jsonify({"success": False, "error": "Aucun paquet selectionne"}), 400
 
     with task_lock:
         if current_task["running"]:
             return jsonify({"success": False, "error": "Tache en cours"}), 409
-        total = len(apt_pkgs) + len(flatpak_apps) + len(external_pkgs) + len(remove_pkgs)
         current_task.update(running=True, name=f"Installation personnalisee ({total} paquets)", progress=0)
 
     def run():
@@ -207,68 +243,58 @@ def install_custom():
             log_info("apt update avant installation...")
             apt_update()
 
-            for pkg in apt_pkgs:
-                name, desc = pkg.get("name", ""), pkg.get("description", "")
-                if not name:
-                    continue
-                if check_package_installed(name):
-                    log_warn(f"{name} deja installe, ignore.")
+            for pkg in apt_resolved:
+                if check_package_installed(pkg.name):
+                    log_warn(f"{pkg.name} deja installe, ignore.")
                 else:
-                    log_info(f"APT : {name}")
-                    result = apt_install([name])
-                    state.record(ACTION_APT_INSTALL, name, result.success,
-                                 rollback_cmd=["apt", "remove", "-y", name],
-                                 metadata={"description": desc})
+                    log_info(f"APT : {pkg.name}")
+                    result = apt_install([pkg.name])
+                    state.record(ACTION_APT_INSTALL, pkg.name, result.success,
+                                 rollback_cmd=["apt", "remove", "-y", pkg.name],
+                                 metadata={"description": pkg.description, "profile": slug})
                     if not result.success:
-                        log_error(f"Echec : {name}")
+                        log_error(f"Echec : {pkg.name}")
                         had_errors = True
                 done += 1
                 update_task_status(f"Installation ({done}/{total})", True, 10 + int((done / total) * 80))
 
-            for fp in flatpak_apps:
-                app, desc = fp.get("app", ""), fp.get("description", "")
-                if not app:
-                    continue
-                if check_flatpak_installed(app):
-                    log_warn(f"{app} deja installe, ignore.")
+            for fp in flatpak_resolved:
+                if check_flatpak_installed(fp.app):
+                    log_warn(f"{fp.app} deja installe, ignore.")
                 else:
-                    log_info(f"Flatpak : {app}")
-                    result = flatpak_install(app)
-                    state.record(ACTION_FLATPAK_INSTALL, app, result.success,
-                                 rollback_cmd=["flatpak", "uninstall", "-y", app],
-                                 metadata={"description": desc})
+                    log_info(f"Flatpak : {fp.app}")
+                    result = flatpak_install(fp.app)
+                    state.record(ACTION_FLATPAK_INSTALL, fp.app, result.success,
+                                 rollback_cmd=["flatpak", "uninstall", "-y", fp.app],
+                                 metadata={"description": fp.description, "profile": slug})
                     if not result.success:
-                        log_error(f"Echec : {app}")
+                        log_error(f"Echec : {fp.app}")
                         had_errors = True
                 done += 1
                 update_task_status(f"Installation ({done}/{total})", True, 10 + int((done / total) * 80))
 
-            for ext in external_pkgs:
-                name, desc, cmd = ext.get("name", ""), ext.get("description", ""), ext.get("cmd", "")
-                if not name or not cmd:
-                    continue
-                log_info(f"Externe : {name}")
-                result = run_command(["bash", "-c", cmd])
-                state.record(ACTION_EXTERNAL_INSTALL, name, result.success,
-                             rollback_cmd=[], metadata={"description": desc, "manual_rollback": True})
+            for ext in external_resolved:
+                log_info(f"Externe : {ext.name}")
+                # ext.cmd vient du profil JSON cote serveur (de confiance), pas du body.
+                result = run_command(["bash", "-c", ext.cmd])
+                state.record(ACTION_EXTERNAL_INSTALL, ext.name, result.success,
+                             rollback_cmd=[],
+                             metadata={"description": ext.description, "profile": slug, "manual_rollback": True})
                 if not result.success:
-                    log_error(f"Echec : {name}")
+                    log_error(f"Echec : {ext.name}")
                     had_errors = True
                 done += 1
                 update_task_status(f"Installation ({done}/{total})", True, 10 + int((done / total) * 80))
 
-            for pkg in remove_pkgs:
-                name, desc = pkg.get("name", ""), pkg.get("description", "")
-                if not name:
-                    continue
-                if check_package_installed(name):
-                    log_info(f"Suppression : {name}")
-                    result = apt_remove([name], purge=True)
-                    state.record(ACTION_APT_REMOVE, name, result.success,
-                                 rollback_cmd=["apt", "install", "-y", name],
-                                 metadata={"description": desc})
+            for pkg in remove_resolved:
+                if check_package_installed(pkg.name):
+                    log_info(f"Suppression : {pkg.name}")
+                    result = apt_remove([pkg.name], purge=True)
+                    state.record(ACTION_APT_REMOVE, pkg.name, result.success,
+                                 rollback_cmd=["apt", "install", "-y", pkg.name],
+                                 metadata={"description": pkg.description, "profile": slug})
                     if not result.success:
-                        log_error(f"Echec suppression : {name}")
+                        log_error(f"Echec suppression : {pkg.name}")
                         had_errors = True
                 done += 1
                 update_task_status(f"Installation ({done}/{total})", True, 10 + int((done / total) * 80))
