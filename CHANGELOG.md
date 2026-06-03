@@ -2,6 +2,41 @@
 
 Tous les changements notables de ce projet seront documentés dans ce fichier.
 
+## [2.3.0] - 2026-06-03
+
+### 🛡️ Sécurité
+
+- **Garde Origin/Referer** sur toutes les routes mutantes (`POST`/`PUT`/`PATCH`/`DELETE`) — bloque les CSRF depuis un autre site dans le même navigateur (`web_app.py:_origin_guard`).
+- **Defense in depth `/api/profiles/install-custom`** : le body JSON ne contient plus que le slug et les noms des paquets ; les commandes `external.cmd` sont résolues côté serveur depuis le profil canonique (élimine l'injection shell via body).
+- **Sudoers temporaire** : `/etc/sudoers.d/mintyforge` est désormais supprimé à l'arrêt de l'app (trap `cleanup` dans `mintyforge.sh`), au lieu de persister indéfiniment.
+
+### 🐛 Corrections
+
+- **Rollback APT cassé** : `StateManager._execute_rollback` préfixe désormais `sudo -n` pour les commandes `apt`/`apt-get`/`dpkg`/`snap`. Les rollbacks APT étaient silencieusement inopérants.
+- **Timeouts APT** : `apt_install` (30 min), `apt_remove` (10 min), `apt_update` (5 min), `apt_upgrade` (1 h), `flatpak_install` (30 min) — évite qu'un dépôt qui pendouille bloque toute la file de tâches.
+- **`_status_cache` thread-safe** : ajout d'un `threading.Lock` (`routes/legacy.py`).
+- **Dry-run profils** : utilise désormais le cache de profils au lieu de relire le JSON pour chaque slug.
+
+### ✨ Nouvelles fonctionnalités
+
+- **SSE pour la progression de tâche** : nouvelle route `/api/task/stream` qui pousse `(running, name, progress)` en temps réel. Le polling 5 s reste actif en filet de sécurité.
+- **`POST /api/profiles/reload`** : invalide les caches profils/GPU sans redémarrage.
+- **Bandeau batterie PC portable** : remplace l'ancienne section laptop (TLP/monitoring/dock/thermique). Refresh 30 s, code couleur dynamique (vert/orange/rouge selon charge + état AC), statut traduit en français.
+
+### 🧪 Tests
+
+- **`tests/test_routes.py`** : 13 smoke tests Flask (index, status, profiles, state, laptop, greeter, themes) + tests de la garde Origin et du contrat `install-custom`.
+
+### 🗑️ Supprimé
+
+- **Section dconf** (`routes/dconf.py`, UI, JS, CSS) — posait des problèmes d'affichage sur petits/grands écrans. Le binaire `dconf` reste utilisé par `themes_install.py`.
+- **Backend laptop avancé** (TLP/monitoring/dock/thermique) : `scripts/laptop_setup.py`, `configs/laptop.json`, ~165 lignes de `routes/laptop.py`. Seul `/api/laptop/detect` subsiste pour le bandeau batterie.
+
+### 🎨 Refactor CSS
+
+- **Variables sémantiques** (`--success-bg`, `--warning-bg`, `--danger-bg`, `--info-bg`, `--code-bg`, etc.) avec overrides `[data-theme="dark"]` centralisés. Couleurs codées en dur éliminées des règles répétées.
+- **~17 classes utilitaires** extraites des styles inline d'`index.html` (`header-actions`, `firewall-row`, `greeter-info`, `theme-tab-active`, `btn-*-outline`, etc.).
+
 ## [2.2.0] - 2026-02-07
 
 ### 🔍 Validation (Option C)

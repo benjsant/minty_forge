@@ -3,6 +3,7 @@
         let eventSource = null;
         let taskEventSource = null;
         let _taskStreamConnected = false;
+        let _serverShutdown = false;  // bloque les reconnexions SSE apres /api/quit
         let selectedProfiles = new Set();
         let profilesData = {};
         let autoScroll = true;
@@ -42,7 +43,15 @@
 
         function esc(str) {
             if (!str) return '';
-            return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Couvre les contextes texte HTML, attributs (double et simple quote)
+            // et chaines JS injectees dans des attributs onclick='...${esc(x)}...'.
+            return String(str)
+                .replace(/&/g,  '&amp;')
+                .replace(/"/g,  '&quot;')
+                .replace(/'/g,  '&#39;')
+                .replace(/`/g,  '&#96;')
+                .replace(/</g,  '&lt;')
+                .replace(/>/g,  '&gt;');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -465,11 +474,17 @@
 
         // Logs SSE
         function connectLogs() {
+            if (_serverShutdown) return;
             if (eventSource) eventSource.close();
             const indicator = document.getElementById('sseIndicator');
             eventSource = new EventSource('/api/logs/stream');
             eventSource.onopen = () => { indicator.className = 'sse-indicator connected'; };
             eventSource.onmessage = function(event) {
+                if (event.data === '__shutdown__') {
+                    _serverShutdown = true;
+                    try { eventSource.close(); } catch (e) {}
+                    return;
+                }
                 indicator.className = 'sse-indicator connected';
                 const container = document.getElementById('logsContainer');
                 const line = document.createElement('div');
@@ -481,25 +496,31 @@
             };
             eventSource.onerror = () => {
                 indicator.className = 'sse-indicator disconnected';
-                setTimeout(connectLogs, 5000);
+                if (!_serverShutdown) setTimeout(connectLogs, 5000);
             };
         }
 
         // Task progress SSE (remplace le polling /api/status pour la tache)
         function connectTaskStream() {
+            if (_serverShutdown) return;
             if (taskEventSource) { try { taskEventSource.close(); } catch (e) {} }
             taskEventSource = new EventSource('/api/task/stream');
             taskEventSource.onopen = () => { _taskStreamConnected = true; };
             taskEventSource.onmessage = (event) => {
                 try {
                     const task = JSON.parse(event.data);
+                    if (task && task.__shutdown__) {
+                        _serverShutdown = true;
+                        try { taskEventSource.close(); } catch (e) {}
+                        return;
+                    }
                     updateTaskStatus(task);
                 } catch (e) { /* keepalive ou JSON invalide */ }
             };
             taskEventSource.onerror = () => {
                 _taskStreamConnected = false;
                 try { taskEventSource.close(); } catch (e) {}
-                setTimeout(connectTaskStream, 5000);
+                if (!_serverShutdown) setTimeout(connectTaskStream, 5000);
             };
         }
 
@@ -573,15 +594,22 @@
             });
         }
 
+        function _showQuitPage() {
+            _serverShutdown = true;
+            document.body.innerHTML =
+                '<div class="quit-page">' +
+                    '<div class="quit-page-inner">' +
+                        '<h2>MintyForge ferme.</h2>' +
+                        '<p>Vous pouvez fermer cet onglet.</p>' +
+                    '</div>' +
+                '</div>';
+        }
+
         function quitApp() {
             showConfirm('Quitter', 'Fermer MintyForge ?', () => {
                 fetch('/api/quit', { method: 'POST' })
-                    .then(() => {
-                        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666;"><div style="text-align:center;"><h2>MintyForge ferme.</h2><p>Vous pouvez fermer cet onglet.</p></div></div>';
-                    })
-                    .catch(() => {
-                        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666;"><div style="text-align:center;"><h2>MintyForge ferme.</h2><p>Vous pouvez fermer cet onglet.</p></div></div>';
-                    });
+                    .then(_showQuitPage)
+                    .catch(_showQuitPage);
             });
         }
 
@@ -732,10 +760,12 @@
                 if (!checked[type]) checked[type] = [];
                 checked[type].push(idx);
             });
-            const apt      = (checked.apt      || []).map(i => p.apt[i]);
-            const flatpak  = (checked.flatpak  || []).map(i => p.flatpak[i]);
-            const external = (checked.external || []).map(i => ({...p.external[i]}));
-            const remove   = (p.remove || []);  // suppression: toujours tout
+            // On envoie seulement les noms ; le serveur resout les commandes
+            // depuis le profil canonique (defense en profondeur contre l'injection).
+            const apt      = (checked.apt      || []).map(i => p.apt[i].name);
+            const flatpak  = (checked.flatpak  || []).map(i => p.flatpak[i].app);
+            const external = (checked.external || []).map(i => p.external[i].name);
+            const remove   = (p.remove || []).map(r => r.name);  // suppression: toujours tout
 
             if (!apt.length && !flatpak.length && !external.length) {
                 showToast('Aucun paquet coche', 'warning');
@@ -761,7 +791,7 @@
                     fetch('/api/profiles/install-custom', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({apt, flatpak, external, remove})
+                        body: JSON.stringify({slug, apt, flatpak, external, remove})
                     })
                     .then(r => r.json())
                     .then(data => {

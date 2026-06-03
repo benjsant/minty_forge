@@ -71,24 +71,37 @@ Tous les scripts ont été mis à jour pour utiliser le module `utils` :
 - ✅ **apt_install.py** - Installation sécurisée de paquets APT
 - ✅ **apt_remove.py** - Suppression sécurisée de paquets
 - ✅ **flatpak_install.py** - Installation sécurisée de Flatpaks
-- ✅ **external_install.py** - Commandes externes via `bash -c` (contrôlées)
+- ✅ **external_install.py** - Commandes externes via `bash -c` (contrôlées, voir §4)
 - ✅ **distroscript_install.py** - Clone et exécution sécurisés
-- ✅ **qt_install.py** - Installation outils Qt sécurisée
-- ✅ **web_app.py** - API Flask avec appels sécurisés
+- ✅ **profile_install.py** - Installation par profil (résolution canonique côté serveur)
+- ✅ **themes_install.py** - Cloning git + dconf
+- ✅ **web_app.py** - API Flask, garde Origin/Referer + headers CSP
 
 ### 4. Gestion des commandes externes complexes
 
-**Cas particulier :** `external_packages.json`
+**Cas particulier :** `external_packages.json` et `configs/profiles/*.json` (entrées `external`)
 
-Les commandes dans `external_packages.json` peuvent contenir des pipes, redirections, etc. (ex: `curl | sh`).
+Les commandes peuvent contenir des pipes, redirections, etc. (ex: `curl | sh`).
+Elles sont exécutées via `bash -c` — équivalent à `shell=True` du point de vue
+du risque d'injection. Pour limiter la surface d'attaque :
 
-**Solution :** Ces commandes sont exécutées via `bash -c` mais avec validation :
 ```python
 # Commande complexe avec pipe (depuis JSON de confiance)
 result = run_command(["bash", "-c", cmd])
 ```
 
-**⚠️ Important :** Le fichier `external_packages.json` doit être considéré comme **sensible** et ne doit pas être éditable par des utilisateurs non fiables.
+**Garanties actuelles :**
+- Les commandes ne viennent **jamais** du body HTTP : la route
+  `/api/profiles/install-custom` reçoit uniquement le slug et les *noms* des
+  paquets ; le serveur résout les `cmd` depuis le profil canonique
+  (`configs/profiles/<slug>.json`) cote serveur.
+- Une garde `Origin`/`Referer` (`web_app.py:_origin_guard`) rejette tout `POST`
+  qui ne provient pas de `http://localhost:5000` ou `http://127.0.0.1:5000`.
+
+**⚠️ Implications :** les fichiers `configs/**/*.json` doivent être traités
+comme du **code de confiance** : quiconque peut les éditer peut faire exécuter
+des commandes arbitraires (potentiellement avec sudo) lors de la prochaine
+installation. À placer hors d'atteinte des comptes non fiables.
 
 ## 🔒 Meilleures pratiques
 
@@ -98,7 +111,7 @@ result = run_command(["bash", "-c", cmd])
 2. **JAMAIS** utiliser `shell=True`
 3. **TOUJOURS** construire des commandes sous forme de listes : `["apt", "install", package]`
 4. **VALIDER** toutes les entrées utilisateur avant de les passer aux fonctions utils
-5. **TESTER** avec le script `test_security.py`
+5. **TESTER** avec la suite complète : `uv run --with pytest pytest tests/`
 
 ### Pour les utilisateurs
 
@@ -122,18 +135,18 @@ Les commandes externes (JSON) sont documentées et nécessitent validation manue
 
 ## 🧪 Tests
 
-Un script de test complet est fourni :
+Lancer la suite complète via pytest :
 
 ```bash
-python3 test_security.py
+uv run --with pytest pytest tests/
 ```
 
-**Tests effectués :**
-- ✅ Import de tous les modules
-- ✅ Vérification d'existence de commandes
-- ✅ Vérification d'installation de paquets
-- ✅ Exécution de commandes simples
-- ✅ Gestion des erreurs
+**Couverture actuelle (41 tests) :**
+- `test_security.py` — wrappers subprocess sécurisés
+- `test_utils.py` — utils file/logging/run_command
+- `test_validation.py` — validation Pydantic des configs JSON
+- `test_state_manager.py` — historique + rollback (avec mock)
+- `test_routes.py` — smoke Flask : index, status, profils, state, laptop, greeter, thèmes, garde Origin/Referer, contrat `install-custom`
 
 ## 📊 Comparaison avant/après
 
@@ -185,7 +198,7 @@ python3 test_security.py
 Pour contribuer en toute sécurité :
 
 1. Utilisez toujours le module `utils` pour les commandes système
-2. Testez avec `test_security.py`
+2. Lancez la suite : `uv run --with pytest pytest tests/`
 3. Documentez les nouvelles fonctions
 4. Signalez les problèmes de sécurité de manière responsable
 

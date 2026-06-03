@@ -39,6 +39,30 @@ def _origin_guard():
     return jsonify({"success": False, "error": "Origine non autorisee"}), 403
 
 
+# Politique de securite restrictive — defense en profondeur contre XSS et
+# clickjacking. 'unsafe-inline' reste necessaire tant que index.html contient
+# des handlers onclick="" et des attributs style="" inline.
+_CSP_POLICY = (
+    "default-src 'self'; "
+    "img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
+
+@app.after_request
+def _security_headers(response):
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Content-Security-Policy", _CSP_POLICY)
+    return response
+
+
 app.register_blueprint(legacy.bp)
 app.register_blueprint(profiles.bp)
 app.register_blueprint(state_routes.bp)

@@ -171,16 +171,23 @@ class StateManager:
 
     # --- Interne ---
 
+    _SUDO_REQUIRED_BINARIES = {"apt", "apt-get", "dpkg", "snap"}
+
     def _execute_rollback(self, entry):
         import subprocess
+        cmd = list(entry.rollback_cmd)
+        # Les rollbacks APT/dpkg ont besoin de sudo (la version stockee historiquement
+        # omettait sudo, ce qui rendait le rollback silencieusement inoperant).
+        if cmd and cmd[0] in self._SUDO_REQUIRED_BINARIES and cmd[0:2] != ["sudo", "-n"]:
+            cmd = ["sudo", "-n"] + cmd
         try:
             result = subprocess.run(
-                entry.rollback_cmd, capture_output=True, text=True, timeout=300,
+                cmd, capture_output=True, text=True, timeout=300,
             )
             if result.returncode != 0:
                 raise StateError(
                     f"Rollback echoue (code {result.returncode}): "
-                    f"{' '.join(entry.rollback_cmd)}\n{result.stderr}"
+                    f"{' '.join(cmd)}\n{result.stderr}"
                 )
         except subprocess.TimeoutExpired:
             raise StateError(f"Timeout rollback '{entry.target}'")

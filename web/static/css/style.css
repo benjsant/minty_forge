@@ -14,6 +14,17 @@
     --text: #333333;
     --text-muted: #7f8c8d;
     --border: #ecf0f1;
+    /* Fonds semantiques (badges, bannieres) */
+    --success-bg: #d5f4e6;
+    --success-fg: #27ae60;
+    --danger-bg: #fadbd8;
+    --danger-fg: #e74c3c;
+    --warning-bg: #fef3cd;
+    --warning-fg: #856404;
+    --info-bg: #dbeafe;
+    --info-fg: #1e40af;
+    --code-bg: #0f172a;
+    --code-fg: #e2e8f0;
 }
 
 [data-theme="dark"] {
@@ -25,6 +36,14 @@
     --dark: #e2e8f0;
     --light: #334155;
     --border: #334155;
+    --success-bg: #064e3b;
+    --success-fg: #6ee7b7;
+    --danger-bg: #7f1d1d;
+    --danger-fg: #fca5a5;
+    --warning-bg: #451a03;
+    --warning-fg: #fed7aa;
+    --info-bg: #1e3a5f;
+    --info-fg: #93c5fd;
 }
 
 body {
@@ -79,23 +98,20 @@ body {
     background: var(--light);
     text-align: center;
 }
-.status-item.ok { background: #d5f4e6; border-left: 4px solid var(--success); }
-.status-item.error { background: #fadbd8; border-left: 4px solid var(--danger); }
-[data-theme="dark"] .status-item.ok { background: #064e3b; }
-[data-theme="dark"] .status-item.error { background: #7f1d1d; }
+.status-item.ok { background: var(--success-bg); border-left: 4px solid var(--success); }
+.status-item.error { background: var(--danger-bg); border-left: 4px solid var(--danger); }
 .status-item h3 { font-size: 0.85em; color: var(--text-muted); margin-bottom: 4px; }
 .status-item .value { font-size: 1.4em; font-weight: bold; color: var(--dark); }
 
 .tools-warning {
-    background: #fef3cd;
+    background: var(--warning-bg);
     border-left: 4px solid var(--warning);
     border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 16px;
     font-size: 0.9em;
-    color: #856404;
+    color: var(--warning-fg);
 }
-[data-theme="dark"] .tools-warning { background: #451a03; color: #fed7aa; }
 
 .task-bar {
     background: var(--card-bg);
@@ -112,8 +128,7 @@ body {
     font-weight: bold;
     color: var(--dark);
 }
-.task-status.running { background: #d5f4e6; animation: pulse 2s infinite; }
-[data-theme="dark"] .task-status.running { background: #064e3b; }
+.task-status.running { background: var(--success-bg); animation: pulse 2s infinite; }
 
 .progress-bar {
     width: 100%;
@@ -179,8 +194,7 @@ body {
     border-color: var(--secondary);
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.15);
 }
-.profile-card.selected { border-color: var(--primary); background: #d5f4e6; }
-[data-theme="dark"] .profile-card.selected { background: #064e3b; }
+.profile-card.selected { border-color: var(--primary); background: var(--success-bg); }
 
 .profile-card .profile-icon { font-size: 1.8em; margin-bottom: 6px; }
 .profile-card .profile-name { font-weight: bold; font-size: 1.1em; color: var(--dark); }
@@ -285,7 +299,7 @@ body {
 .logs-toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
 
 .logs-container {
-    background: #0f172a; color: #e2e8f0; padding: 16px;
+    background: var(--code-bg); color: var(--code-fg); padding: 16px;
     border-radius: 10px; height: 400px; overflow-y: auto;
     font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
     font-size: 0.85em; line-height: 1.7;
@@ -336,12 +350,10 @@ body {
     font-size: 0.75em; font-weight: bold; padding: 2px 8px;
     border-radius: 8px; white-space: nowrap;
 }
-.pkg-status.to_install { background: #d5f4e6; color: #27ae60; }
+.pkg-status.to_install { background: var(--success-bg); color: var(--success-fg); }
 .pkg-status.installed { background: var(--light); color: var(--text-muted); }
-.pkg-status.duplicate { background: #fef9c3; color: #b45309; }
+.pkg-status.duplicate { background: var(--warning-bg); color: var(--warning-fg); }
 .pkg-status.absent { background: var(--light); color: var(--text-muted); }
-[data-theme="dark"] .pkg-status.to_install { background: #064e3b; color: #6ee7b7; }
-[data-theme="dark"] .pkg-status.duplicate { background: #451a03; color: #fcd34d; }
 
 .confirm-modal {
     background: var(--card-bg); border-radius: 14px; padding: 28px;
@@ -414,12 +426,9 @@ body {
     font-size: 0.75em; font-weight: bold; padding: 2px 8px;
     border-radius: 8px; white-space: nowrap;
 }
-.hi-badge.ok { background: #d5f4e6; color: #27ae60; }
-.hi-badge.fail { background: #fadbd8; color: #e74c3c; }
-.hi-badge.rollback { background: #dbeafe; color: #2563eb; }
-[data-theme="dark"] .hi-badge.ok { background: #064e3b; color: #6ee7b7; }
-[data-theme="dark"] .hi-badge.fail { background: #7f1d1d; color: #fca5a5; }
-[data-theme="dark"] .hi-badge.rollback { background: #1e3a5f; color: #93c5fd; }
+.hi-badge.ok       { background: var(--success-bg); color: var(--success-fg); }
+.hi-badge.fail     { background: var(--danger-bg);  color: var(--danger-fg); }
+.hi-badge.rollback { background: var(--info-bg);    color: var(--info-fg); }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -440,11 +449,10 @@ body {
 }
 
 .disclaimer {
-    background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+    background: var(--warning-bg); border: 1px solid var(--warning); border-radius: 8px;
     padding: 12px 16px; margin-bottom: 16px;
-    font-size: 0.82em; color: #664d03; line-height: 1.5;
+    font-size: 0.82em; color: var(--warning-fg); line-height: 1.5;
 }
-[data-theme="dark"] .disclaimer { background: #451a03; border-color: #92400e; color: #fde68a; }
 .disclaimer-close {
     float: right; background: none; border: none; font-size: 1.2em;
     cursor: pointer; color: inherit; padding: 0 4px;
@@ -485,10 +493,9 @@ body {
 }
 
 .greeter-info {
-    font-size: 0.82em; background: #fef3cd; border-left: 3px solid var(--warning);
-    border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; color: #856404;
+    font-size: 0.82em; background: var(--warning-bg); border-left: 3px solid var(--warning);
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; color: var(--warning-fg);
 }
-[data-theme="dark"] .greeter-info { background: #451a03; color: #fed7aa; }
 .greeter-status-box {
     font-size: 0.85em; color: var(--text-muted); margin-bottom: 14px;
     background: var(--light); border-radius: 8px; padding: 10px;
@@ -506,6 +513,14 @@ body {
     display: flex; gap: 10px; flex-wrap: wrap;
 }
 .btn-install-custom { flex: 1; padding: 12px; font-size: 0.95em; }
+
+.quit-page {
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; font-family: 'Segoe UI', sans-serif;
+    color: var(--text-muted);
+}
+.quit-page-inner { text-align: center; }
+.quit-page h2 { color: var(--dark); margin-bottom: 8px; }
 
 @media (max-width: 768px) {
     .header { flex-direction: column; text-align: center; gap: 15px; }

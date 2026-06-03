@@ -19,11 +19,13 @@ from routes.shared import (
     log_queue, current_task, task_lock,
     update_task_status, run_script, cancel_current_task,
     subscribe_task_events, unsubscribe_task_events,
+    broadcast_shutdown,
 )
 
 bp = Blueprint("legacy", __name__)
 
 _status_cache = {"data": None, "ts": 0}
+_status_cache_lock = threading.Lock()
 STATUS_CACHE_TTL = 8
 
 
@@ -83,8 +85,11 @@ def _get_package_counts():
 @bp.route('/api/status')
 def status():
     now = time.time()
-    if _status_cache["data"] and now - _status_cache["ts"] < STATUS_CACHE_TTL:
-        cached = dict(_status_cache["data"])
+    with _status_cache_lock:
+        cached_data = _status_cache["data"]
+        cached_ts = _status_cache["ts"]
+    if cached_data and now - cached_ts < STATUS_CACHE_TTL:
+        cached = dict(cached_data)
         cached["task"] = dict(current_task)
         return jsonify(cached)
     data = {
@@ -92,8 +97,9 @@ def status():
         "packages": _get_package_counts(),
         "task": dict(current_task),
     }
-    _status_cache["data"] = data
-    _status_cache["ts"] = now
+    with _status_cache_lock:
+        _status_cache["data"] = data
+        _status_cache["ts"] = now
     return jsonify(data)
 
 
@@ -251,9 +257,12 @@ def execute_all():
 def quit_app():
     """Arrete le serveur Flask proprement."""
     log_info("Arret de MintyForge demande par l'utilisateur.")
+    # Previent les clients SSE pour qu'ils cessent de reconnecter
+    broadcast_shutdown()
 
     def shutdown():
-        time.sleep(0.5)
+        # Laisse le temps a la sentinelle d'etre diffusee avant de tuer le serveur
+        time.sleep(0.8)
         os.kill(os.getpid(), signal.SIGTERM)
 
     threading.Thread(target=shutdown, daemon=True).start()

@@ -5,6 +5,7 @@ import queue
 import threading
 import logging
 import subprocess
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 log_queue = queue.Queue(maxsize=1000)
@@ -44,6 +45,30 @@ def _broadcast_task():
             except queue.Full:
                 pass
 
+
+# Sentinelle diffusee avant l'arret du serveur pour permettre aux clients SSE
+# de fermer proprement leur connexion (sans tenter de se reconnecter en boucle).
+SHUTDOWN_SENTINEL = "__shutdown__"
+
+
+def broadcast_shutdown():
+    """Pousse une sentinelle a tous les abonnes SSE (logs + taches).
+
+    Apres reception, le client doit fermer son EventSource et ne pas reconnecter.
+    """
+    # Canal task : envoie un dict reconnaissable
+    with _task_subscribers_lock:
+        for q in list(_task_subscribers):
+            try:
+                q.put_nowait({"__shutdown__": True})
+            except queue.Full:
+                pass
+    # Canal logs : envoie une ligne sentinelle
+    try:
+        log_queue.put_nowait(SHUTDOWN_SENTINEL)
+    except queue.Full:
+        pass
+
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -56,10 +81,16 @@ class QueueHandler(logging.Handler):
             pass
 
 
+_log_file_handler = RotatingFileHandler(
+    LOG_DIR / "mintyforge.log",
+    maxBytes=2_000_000,   # 2 MB par fichier
+    backupCount=3,        # mintyforge.log + .1 .2 .3
+    encoding="utf-8",
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler(LOG_DIR / "mintyforge.log"), QueueHandler()]
+    handlers=[_log_file_handler, QueueHandler()],
 )
 logger = logging.getLogger("mintyforge")
 

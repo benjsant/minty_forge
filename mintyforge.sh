@@ -108,17 +108,21 @@ if [ ${#_MISSING_PKGS[@]} -gt 0 ]; then
     ok "Outils requis installes"
 fi
 
-# Configurer sudoers pour ufw et crudini sans mot de passe (si pas deja fait)
+# Configurer sudoers pour ufw et crudini sans mot de passe (uniquement pendant
+# l'execution de MintyForge — le fichier est supprime au cleanup, voir trap).
 SUDOERS_FILE="/etc/sudoers.d/mintyforge"
+SUDOERS_CREATED_BY_US=0
 if [ ! -f "$SUDOERS_FILE" ]; then
-    info "Configuration sudo (ufw + crudini)..."
+    info "Configuration sudo temporaire (ufw + crudini)..."
     CRUDINI_PATH=$(command -v crudini 2>/dev/null || echo "/usr/bin/crudini")
     {
+        echo "# MintyForge — fichier temporaire, supprime a la fermeture de l'app"
         echo "$USER ALL=(ALL) NOPASSWD: /usr/sbin/ufw"
         echo "$USER ALL=(ALL) NOPASSWD: $CRUDINI_PATH"
     } | sudo tee "$SUDOERS_FILE" > /dev/null
     sudo chmod 440 "$SUDOERS_FILE"
-    ok "Sudo configure (ufw + crudini sans mot de passe)"
+    SUDOERS_CREATED_BY_US=1
+    ok "Sudo configure (sera retire a la fermeture)"
 fi
 
 # Garder sudo actif en arriere-plan (renouvelle toutes les 50s)
@@ -190,6 +194,10 @@ cleanup() {
     info "Arret de MintyForge..."
     restore_sleep
     kill "$SUDO_KEEPER_PID" 2>/dev/null
+    # Retire le fichier sudoers temporaire (s'il a ete cree par ce lancement)
+    if [ "$SUDOERS_CREATED_BY_US" = "1" ] && [ -f "$SUDOERS_FILE" ]; then
+        sudo rm -f "$SUDOERS_FILE" 2>/dev/null && info "Sudoers temporaire retire"
+    fi
     ok "MintyForge arrete. A bientot!"
 }
 

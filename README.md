@@ -7,7 +7,7 @@ Utilitaire de post-installation pour **Linux Mint 22 (Cinnamon)**. Configure rap
 ## Lancement
 
 ```bash
-git clone https://github.com/ton-compte/minty_forge.git
+git clone https://github.com/benjsant/minty_forge.git
 cd minty_forge
 chmod +x mintyforge.sh
 ./mintyforge.sh
